@@ -170,9 +170,26 @@ func ThemesDir() string {
 	return filepath.Join(configDirPath(), "themes")
 }
 
-// LoadByName loads a theme by name from ~/.config/mdc/themes/<name>.toml.
+// LoadByName loads a theme by name from ~/.config/mdc/themes/<name>.toml,
+// from a direct file path, or from the themes/ directory.
 func LoadByName(name string) (Theme, error) {
+	// 1. Direct file path if it exists
+	if fi, err := os.Stat(name); err == nil && !fi.IsDir() {
+		return LoadFromFile(name)
+	}
+
+	// 2. ~/.config/mdc/themes/<name>.toml
 	path := filepath.Join(configDirPath(), "themes", name+".toml")
+	if fi, err := os.Stat(path); err == nil && !fi.IsDir() {
+		return LoadFromFile(path)
+	}
+
+	// 3. themes/<name>.toml in working directory
+	localPath := filepath.Join("themes", name+".toml")
+	if fi, err := os.Stat(localPath); err == nil && !fi.IsDir() {
+		return LoadFromFile(localPath)
+	}
+
 	return LoadFromFile(path)
 }
 

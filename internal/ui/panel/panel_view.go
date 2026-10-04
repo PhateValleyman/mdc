@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/muesli/termenv"
 
 	"github.com/kooler/MiddayCommander/internal/ui/overlay"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
@@ -154,6 +155,10 @@ func (m Model) renderRow(idx, width int, th theme.Theme) string {
 		style = th.FileSymlink
 	default:
 		style = th.FileNormal
+	}
+
+	if isCursor && lipgloss.ColorProfile() == termenv.Ascii {
+		return "\x1b[7m" + line + "\x1b[0m"
 	}
 
 	return style.Render(line)

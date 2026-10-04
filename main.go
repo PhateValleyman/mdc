@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/kooler/MiddayCommander/internal/app"
+	"github.com/kooler/MiddayCommander/internal/cli"
 	"github.com/kooler/MiddayCommander/internal/platform"
+	"github.com/kooler/MiddayCommander/internal/ui/theme"
 )
 
 var (
@@ -18,20 +21,32 @@ var (
 	date    = "unknown"
 )
 
-
 func main() {
-	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
-		fmt.Printf("mdc %s (%s) built %s\n", version, commit, date)
+	opts, err := cli.Parse(os.Args[1:])
+	if err != nil {
+		prog := "mdc"
+		if len(os.Args) > 0 && os.Args[0] != "" {
+			prog = filepath.Base(os.Args[0])
+		}
+		fmt.Fprintf(os.Stderr, "Error: %v\nRun '%s --help' for usage.\n", err, prog)
+		os.Exit(1)
+	}
+
+	if opts.ShowHelp {
+		fmt.Print(cli.HelpText())
 		os.Exit(0)
 	}
 
-	returnPath := hasFlag(os.Args[1:], "-r")
+	if opts.ShowVersion {
+		fmt.Printf("mdc %s (%s) built %s\n", version, commit, date)
+		os.Exit(0)
+	}
 
 	// With -r, fd 1 is a pipe to the shell (`cd "$(mdc -r)"`). Route the TUI
 	// through a separately-opened /dev/tty so fd 1 stays clean for the final
 	// path on exit.
 	var ttyFile *os.File
-	if returnPath {
+	if opts.ReturnPath {
 		var err error
 		ttyFile, err = openControllingTTY()
 		if err != nil {
@@ -40,6 +55,11 @@ func main() {
 		}
 		defer ttyFile.Close()
 	}
+
+	// Setup color profile according to user flags and environment detection.
+	// This ensures that when running on servers (over SSH with TERM=xterm, etc.),
+	// colors are properly enabled rather than falling back to monochrome Ascii.
+	theme.SetupColor(opts.ColorMode, opts.ColorProfile, ttyFile)
 
 	// Enable Kitty keyboard protocol (flag 1: disambiguate) so the terminal
 	// reports modifier-only key presses (e.g. bare Shift). Terminals that
@@ -51,7 +71,7 @@ func main() {
 	_, _ = uiOut.WriteString("\x1b[>1u")
 	defer func() { _, _ = uiOut.WriteString("\x1b[<u") }() // disable on exit
 
-	opts := []tea.ProgramOption{
+	programOpts := []tea.ProgramOption{
 		tea.WithAltScreen(),
 		// Cell motion, not all motion: only clicks, wheel and drags are used,
 		// so bare pointer movement must not cost a full re-render per cell.
@@ -62,10 +82,17 @@ func main() {
 		tea.WithFilter(app.KittyFilter),
 	}
 	if ttyFile != nil {
-		opts = append(opts, tea.WithInput(ttyFile), tea.WithOutput(ttyFile))
+		programOpts = append(programOpts, tea.WithInput(ttyFile), tea.WithOutput(ttyFile))
 	}
 
-	p := tea.NewProgram(app.New(version), opts...)
+	appOpts := app.Options{
+		Version:   version,
+		LeftPath:  opts.LeftPath,
+		RightPath: opts.RightPath,
+		Theme:     opts.Theme,
+	}
+
+	p := tea.NewProgram(app.NewWithOptions(appOpts), programOpts...)
 
 	// Poll OS-level shift key state and send messages to the Bubble Tea program.
 	// Skipped where IsShiftPressed is a stub, so the ticker never runs for nothing.
@@ -81,20 +108,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if returnPath {
+	if opts.ReturnPath {
 		if m, ok := final.(app.Model); ok {
 			fmt.Println(m.ActivePanelPath())
 		}
 	}
-}
-
-func hasFlag(args []string, name string) bool {
-	for _, a := range args {
-		if a == name {
-			return true
-		}
-	}
-	return false
 }
 
 // pollShift checks the OS modifier state periodically and sends

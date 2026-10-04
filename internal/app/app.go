@@ -131,9 +131,25 @@ type Model struct {
 	shiftHeld      bool
 }
 
-// New creates a new application model.
+// Options holds startup options for configuring the application.
+type Options struct {
+	Version   string
+	LeftPath  string
+	RightPath string
+	Theme     string
+}
+
+// New creates a new application model with default options.
 func New(version string) Model {
+	return NewWithOptions(Options{Version: version})
+}
+
+// NewWithOptions creates a new application model configured with the provided Options.
+func NewWithOptions(opts Options) Model {
 	cfg := config.Load()
+	if opts.Theme != "" {
+		cfg.Theme = opts.Theme
+	}
 
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -145,14 +161,40 @@ func New(version string) Model {
 		cwd = home
 	}
 
+	leftPath := cwd
+	if opts.LeftPath != "" {
+		if abs, err := filepath.Abs(opts.LeftPath); err == nil {
+			if fi, err := os.Stat(abs); err == nil && !fi.IsDir() {
+				leftPath = filepath.Dir(abs)
+			} else {
+				leftPath = abs
+			}
+		} else {
+			leftPath = opts.LeftPath
+		}
+	}
+
+	rightPath := home
+	if opts.RightPath != "" {
+		if abs, err := filepath.Abs(opts.RightPath); err == nil {
+			if fi, err := os.Stat(abs); err == nil && !fi.IsDir() {
+				rightPath = filepath.Dir(abs)
+			} else {
+				rightPath = abs
+			}
+		} else {
+			rightPath = opts.RightPath
+		}
+	}
+
 	lfs := local.New(string(filepath.Separator))
 
 	panelKM := panelKeyMapFromConfig(cfg.Keys)
 
-	left := panel.New(lfs, cwd, panelKM, cfg)
+	left := panel.New(lfs, leftPath, panelKM, cfg)
 	left.SetActive(true)
 
-	right := panel.New(lfs, home, panelKM, cfg)
+	right := panel.New(lfs, rightPath, panelKM, cfg)
 
 	th := theme.Resolve(cfg.Theme)
 
@@ -163,7 +205,7 @@ func New(version string) Model {
 		keyMap:         KeyMapFromConfig(cfg.Keys),
 		theme:          th,
 		cfg:            cfg,
-		version:        version,
+		version:        opts.Version,
 		menuItems:      menubar.DefaultItems(cfg),
 		shiftMenuItems: menubar.ShiftItems(cfg),
 		bookmarkStore:  bookmark.LoadStore(),

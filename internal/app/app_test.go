@@ -598,3 +598,28 @@ func TestEditedRemoteFileGoesBackWithItsMode(t *testing.T) {
 		t.Errorf("the scratch file should be gone, stat gave %v", err)
 	}
 }
+
+func TestNewWithOptions(t *testing.T) {
+	isolate(t)
+
+	dir1 := t.TempDir()
+	dir2 := t.TempDir()
+
+	m := NewWithOptions(Options{
+		Version:   "1.2.3",
+		LeftPath:  dir1,
+		RightPath: dir2,
+		Theme:     "mc-classic",
+	})
+
+	if m.version != "1.2.3" {
+		t.Errorf("version = %q, want 1.2.3", m.version)
+	}
+	if m.leftPanel.Location().Path != dir1 {
+		t.Errorf("leftPanel path = %q, want %q", m.leftPanel.Location().Path, dir1)
+	}
+	if m.rightPanel.Location().Path != dir2 {
+		t.Errorf("rightPanel path = %q, want %q", m.rightPanel.Location().Path, dir2)
+	}
+}
+

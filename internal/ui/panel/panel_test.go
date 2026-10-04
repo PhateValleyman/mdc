@@ -4,10 +4,12 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
-	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
+	"github.com/muesli/termenv"
 	"github.com/kooler/MiddayCommander/internal/config"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 	"github.com/kooler/MiddayCommander/internal/vfs/local"
@@ -294,3 +296,28 @@ func TestSortEntriesSymlinkGroupsWithDirs(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderRowAsciiCursorReverse(t *testing.T) {
+	oldProfile := lipgloss.ColorProfile()
+	defer lipgloss.SetColorProfile(oldProfile)
+	lipgloss.SetColorProfile(termenv.Ascii)
+
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "file.txt")
+	mustWrite(t, filePath, []byte("test"), 0o644)
+	info, _ := os.Stat(filePath)
+
+	th := theme.Default()
+	m := newTestModel(t, dir)
+	m.entries = []fs.DirEntry{&nameOnlyEntry{name: "file.txt", isDir: false}}
+	m.infos = []fs.FileInfo{info}
+	m.cursor = 0
+	m.active = true
+
+	row := m.renderRow(0, 30, th)
+	// In Ascii mode, the cursor row MUST contain reverse video sequence \x1b[7m so navigation is visible.
+	if !strings.Contains(row, "\x1b[7m") {
+		t.Errorf("expected cursor row in Ascii mode to contain reverse video escape (\\x1b[7m), got %q", row)
+	}
+}
+

@@ -1,0 +1,297 @@
+package app
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/kooler/MiddayCommander/internal/actions"
+	"github.com/kooler/MiddayCommander/internal/vfs"
+)
+
+// File operation result messages.
+
+type copyDoneMsg struct{ err error }
+type moveDoneMsg struct{ err error }
+type deleteDoneMsg struct{ err error }
+type mkdirDoneMsg struct{ err error }
+type renameDoneMsg struct{ err error }
+
+// progressMsg streams one update from an in-flight file operation.
+type progressMsg struct {
+	p  actions.Progress
+	ch chan actions.Progress
+}
+
+// progressChanClosedMsg is emitted when the progress channel drains after the
+// operation finishes.
+type progressChanClosedMsg struct{}
+
+// externalDoneMsg is sent when an external viewer/editor returns.
+type externalDoneMsg struct{ err error }
+
+// waitForProgress returns a command that pulls the next progress value from ch.
+// On close, it returns progressChanClosedMsg so we stop rescheduling.
+func waitForProgress(ch chan actions.Progress) tea.Cmd {
+	return func() tea.Msg {
+		p, ok := <-ch
+		if !ok {
+			return progressChanClosedMsg{}
+		}
+		return progressMsg{p: p, ch: ch}
+	}
+}
+
+// sendProgress bridges actions.Progress callbacks onto the channel, honoring
+// ctx cancellation so the worker never blocks once the user hits Esc.
+func sendProgress(ctx context.Context, ch chan actions.Progress) func(actions.Progress) {
+	return func(p actions.Progress) {
+		select {
+		case ch <- p:
+		case <-ctx.Done():
+		}
+	}
+}
+
+func copyCmd(ctx context.Context, ch chan actions.Progress, sources []vfs.FileRef, dest vfs.FileRef) tea.Cmd {
+	return func() tea.Msg {
+		err := actions.Copy(ctx, sources, dest, sendProgress(ctx, ch))
+		close(ch)
+		return copyDoneMsg{err: err}
+	}
+}
+
+func copyAsCmd(ctx context.Context, ch chan actions.Progress, source, destPath vfs.FileRef) tea.Cmd {
+	return func() tea.Msg {
+		err := actions.CopyAs(ctx, source, destPath, sendProgress(ctx, ch))
+		close(ch)
+		return copyDoneMsg{err: err}
+	}
+}
+
+func moveCmd(ctx context.Context, ch chan actions.Progress, sources []vfs.FileRef, dest vfs.FileRef) tea.Cmd {
+	return func() tea.Msg {
+		err := actions.Move(ctx, sources, dest, sendProgress(ctx, ch))
+		close(ch)
+		return moveDoneMsg{err: err}
+	}
+}
+
+func moveAsCmd(ctx context.Context, ch chan actions.Progress, source, destPath vfs.FileRef) tea.Cmd {
+	return func() tea.Msg {
+		err := actions.MoveAs(ctx, source, destPath, sendProgress(ctx, ch))
+		close(ch)
+		return moveDoneMsg{err: err}
+	}
+}
+
+func deleteCmd(ctx context.Context, ch chan actions.Progress, refs []vfs.FileRef) tea.Cmd {
+	return func() tea.Msg {
+		err := actions.Delete(ctx, refs, sendProgress(ctx, ch))
+		close(ch)
+		return deleteDoneMsg{err: err}
+	}
+}
+
+func mkdirCmd(ref vfs.FileRef) tea.Cmd {
+	return func() tea.Msg {
+		err := actions.Mkdir(ref)
+		return mkdirDoneMsg{err: err}
+	}
+}
+
+func renameCmd(ref vfs.FileRef, newName string) tea.Cmd {
+	return func() tea.Msg {
+		err := actions.Rename(ref, newName)
+		return renameDoneMsg{err: err}
+	}
+}
+
+func viewFileCmd(path string) tea.Cmd {
+	return externalCmd("PAGER", "less", path)
+}
+
+func editFileCmd(path string) tea.Cmd {
+	return externalCmd("EDITOR", "vi", path)
+}
+
+func externalCmd(envVar, fallback, path string) tea.Cmd {
+	cmd := strings.TrimSpace(os.Getenv(envVar))
+	if cmd == "" {
+		cmd = fallback
+	}
+	parts := strings.Fields(cmd)
+	c := exec.Command(parts[0], append(parts[1:], path)...)
+	return tea.ExecProcess(c, func(err error) tea.Msg {
+		return externalDoneMsg{err: err}
+	})
+}
+
+func openSystemDefaultCmd(path string) tea.Cmd {
+	return func() tea.Msg {
+		var c *exec.Cmd
+		switch runtime.GOOS {
+		case "darwin":
+			c = exec.Command("open", path)
+		case "windows":
+			c = exec.Command("explorer", path)
+		default:
+			c = exec.Command("xdg-open", path)
+		}
+		_ = c.Start()
+		return externalDoneMsg{}
+	}
+}
+
+func executeFileCmd(path string, dir string, pause bool) tea.Cmd {
+	if pause {
+		shell := os.Getenv("SHELL")
+		if shell == "" {
+			shell = "bash"
+		}
+		c := pauseExecutionCmd(shell, path)
+		c.Dir = dir
+		return tea.ExecProcess(c, func(err error) tea.Msg {
+			return externalDoneMsg{err: err}
+		})
+	}
+
+	c := exec.Command(path)
+	c.Dir = dir
+	return tea.ExecProcess(c, func(err error) tea.Msg {
+		return externalDoneMsg{err: err}
+	})
+}
+
+func pauseExecutionCmd(shellPath, path string) *exec.Cmd {
+	escapedPath := shellQuote(path)
+	shellName := filepath.Base(shellPath)
+	if shellName == "bash" || shellName == "zsh" {
+		script := fmt.Sprintf("status=0; %s || status=$?; printf '\nPress any key to continue...'; read -n1 -s; exit $status", escapedPath)
+		return exec.Command(shellPath, "-lc", script)
+	}
+
+	script := fmt.Sprintf("status=0; %s || status=$?; printf '\nPress enter to continue...'; read -r; exit $status", escapedPath)
+	return exec.Command(shellPath, "-c", script)
+}
+
+func shellQuote(path string) string {
+	return "'" + strings.ReplaceAll(path, "'", "'\\''") + "'"
+}
+
+func startTerminalCmd(dir string) tea.Cmd {
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "bash"
+	}
+	c := interactiveShellCmd(shell)
+	c.Dir = dir
+	return tea.ExecProcess(c, func(err error) tea.Msg {
+		return externalDoneMsg{err: err}
+	})
+}
+
+func interactiveShellCmd(shellPath string) *exec.Cmd {
+	name := filepath.Base(shellPath)
+	switch name {
+	case "bash":
+		if rcFile, err := writeBashRc(); err == nil {
+			return exec.Command(shellPath, "--rcfile", rcFile, "-i")
+		}
+	case "zsh":
+		if dir, err := writeZshDir(); err == nil {
+			cmd := exec.Command(shellPath, "-i")
+			cmd.Env = append(os.Environ(), "ZDOTDIR="+dir)
+			return cmd
+		}
+	}
+	return exec.Command(shellPath, "-i")
+}
+
+func writeBashRc() (string, error) {
+	f, err := os.CreateTemp("", "mdc-terminal-*.bashrc")
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	_, err = f.WriteString(`bind '"\C-o": "\C-d"'` + "\n")
+	if err != nil {
+		return "", err
+	}
+	return f.Name(), nil
+}
+
+func writeZshDir() (string, error) {
+	dir, err := os.MkdirTemp("", "mdc-terminal-*")
+	if err != nil {
+		return "", err
+	}
+	path := filepath.Join(dir, ".zshrc")
+	if err := os.WriteFile(path, []byte("bindkey '^O' exit\n"), 0o600); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
+// refreshBothPanels returns commands to reload both panels.
+func (m *Model) refreshBothPanels() tea.Cmd {
+	return tea.Batch(m.leftPanel.LoadDir(), m.rightPanel.LoadDir())
+}
+
+// inactiveRef returns a reference to the directory shown in the panel that
+// does NOT have focus: the destination of a copy or move.
+func (m *Model) inactiveRef() vfs.FileRef {
+	return m.inactivePanelModel().Ref()
+}
+
+// inactivePanel returns the display path of the panel without focus.
+func (m *Model) inactivePanel() string {
+	return m.inactivePanelModel().Location().Display()
+}
+
+// selectedOrCurrent returns references to the tagged entries in the active
+// panel, or the entry under the cursor when nothing is tagged.
+func (m *Model) selectedOrCurrent() []vfs.FileRef {
+	return m.activePanel().SelectedRefs()
+}
+
+// currentFileName returns just the base name of the file under cursor.
+func (m *Model) currentFileName() string {
+	e := m.activePanel().CurrentEntry()
+	if e == nil {
+		return ""
+	}
+	return e.Name()
+}
+
+// currentFilePath returns the path of the file under cursor, within its own
+// filesystem. Only meaningful for local panels.
+func (m *Model) currentFilePath() string {
+	return m.activePanel().CurrentPath()
+}
+
+// currentFileRef returns a reference to the file under the cursor.
+func (m *Model) currentFileRef() vfs.FileRef {
+	return m.activePanel().CurrentRef()
+}
+
+// activePanelMkdir returns the ref for a new directory in the active panel.
+func (m *Model) activePanelMkdir(name string) vfs.FileRef {
+	return m.activePanel().Ref().Join(name)
+}
+
+// expandHome replaces a leading "~" with the user's home directory.
+func expandHome(path string) string {
+	if len(path) > 0 && path[0] == '~' {
+		if home, err := os.UserHomeDir(); err == nil {
+			return home + path[1:]
+		}
+	}
+	return path
+}

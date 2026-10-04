@@ -1,1 +1,384 @@
-# mdc
+# Midday Commander
+
+<img alt="Static Badge" src="https://img.shields.io/badge/OSS%20hosting%20by-cloudsmith-blue?logo=cloudsmith&style=flat-square&link=https%3A%2F%2Fcloudsmith.com"></img>
+
+A modern dual-panel terminal file manager written in Go, inspired by Midnight Commander.
+
+Midday Commander (mdc) brings the classic dual-panel file management paradigm into the modern terminal with fuzzy finding, bookmarks, archive browsing, themes and customizable keybindings.
+
+Try online: <a href="https://build.demoshell.com/launch?snapshot=kooler%2Ftui%3Amdc"><img src="https://build.demoshell.com/v1/embed/badge.svg" alt="Live demo by DemoShell" align="absmiddle"></a>
+
+![Midday Commander](images/sc_general.png)
+
+**Bookmarks** — bookmarks for most visited locations
+![Bookmarks](images/sc_bookmarks.png)
+
+**Themes** — TOML-based themes with live preview
+![Themes](images/sc_themes.png)
+
+**Fuzzy Find**
+![Fuzzy Find](images/sc_fzf.png)
+
+## Features
+
+- **Dual-panel file browsing** with independent navigation and selection
+- **Archive browsing** - enter ZIP, TAR, 7z, RAR, GZ, BZ2, XZ, LZ4 files as virtual directories
+- **SSH/SFTP panels** - open a remote server in either panel
+- **Fuzzy finder** - recursive file search with real-time fuzzy matching
+- **Bookmarks** to quickly jump to most visited locations
+- **Configurable keybindings** - every key is remappable via `config.toml`
+- **Smart autocomplete** - path and command suggestions with `Tab` completion in Go to path and Execute command
+- **File operations** - copy, move, delete, rename, mkdir with confirmation dialogs
+- **Live theme picker** - browse and preview themes with Ctrl-T
+- **Multi-file selection** - tag files with Insert or Shift+Arrow for batch operations
+- **Quick search** - start typing to jump to matching files instantly
+- **External editor/viewer** - opens files in `$EDITOR` and `$PAGER`
+- **Quick view** - preview the selected file in the other pane (read-only, follows the cursor) with Ctrl+Q
+- **Copy path** - pick a path variant of the selected file and copy it to the clipboard with Shift+F5
+- **Execute files** - run executable files directly with Enter (configurable)
+- **Terminal access** - open shell in current directory with Ctrl+O
+- **Mouse support** - clickable menu bar and panel interaction
+- **Go to path** - quickly jump to any directory with `~` expansion
+- **Single binary** - no runtime dependencies
+
+## Installation
+
+### Using Homebrew
+
+```bash
+brew install kooler/apps/middaycommander
+```
+
+Run: `mdc`
+
+### From releases (MacOS/Windows/Linux)
+
+Download a binary from the [Releases](https://github.com/kooler/MiddayCommander/releases) in Github.
+
+### Debian / Ubuntu (apt)
+
+Packages are hosted on [Cloudsmith](https://cloudsmith.io/~kooler/repos/mdc/). Configure the repository once, then install:
+
+```bash
+curl -1sLf 'https://dl.cloudsmith.io/public/kooler/mdc/setup.deb.sh' | sudo -E bash
+sudo apt install mdc
+```
+
+### RHEL / Fedora (dnf/yum)
+
+```bash
+curl -1sLf 'https://dl.cloudsmith.io/public/kooler/mdc/setup.rpm.sh' | sudo -E bash
+sudo dnf install mdc
+```
+
+### Using Mise en place
+
+```bash
+mise use --global github:kooler/MiddayCommander
+```
+
+### Build from source
+
+Requires Go 1.19 or later.
+
+```bash
+git clone https://github.com/kooler/MiddayCommander.git
+cd mdc
+make build
+```
+
+The binary will be at `./mdc`. Move it to your `$PATH`:
+
+```bash
+sudo mv mdc /usr/local/bin/
+```
+
+#### ZyXEL NSA320 (FFP)
+
+With Go 1.19 installed on the NAS or on another machine, build a static Linux
+ARMv5 soft-float binary with:
+
+```bash
+make build-zyxel
+```
+
+This writes `./mdc`, suitable for the NSA320's ARMv5/uClibc environment.
+
+### Build targets
+
+```bash
+make build   # Build the binary
+make build-zyxel # Cross-build a static Linux ARMv5 soft-float binary
+make run     # Build and run
+make test    # Run tests
+make vet     # Run go vet
+make clean   # Remove binary
+```
+
+## Quick Start
+
+```bash
+mdc
+```
+
+The left panel opens in the current directory, the right panel in your home directory. Navigate with arrow keys or `j`/`k`, switch panels with `Tab`.
+
+### Return active path on exit (`-r`)
+
+With `mdc -r` the active panel's path is printed on stdout when you quit. Why is it needed? for example if you want to cd to that directory, add the following to your `~/.zshrc` / `~/.bashrc`:
+
+```sh
+mdcd() {
+    local dir
+    dir=$(mdc -r) && [ -n "$dir" ] && cd "$dir"
+}
+```
+
+Now `mdcd` launches mdc; when you quit, the shell `cd`s into the directory the active panel was showing. Good way to navigate around.
+
+## Keybindings
+
+### Global
+
+| Key | Action |
+|-----|--------|
+| `F1` | Help - show keybinding reference |
+| `F2` | Bookmarks |
+| `Shift-F2` | SSH servers |
+| `F3` | View file (`$PAGER`) |
+| `F4` | Edit file (`$EDITOR`) |
+| `F5` | Copy to other panel |
+| `F6` | Move to other panel |
+| `F7` | Create directory |
+| `F8` | Delete |
+| `F9` | Fuzzy finder |
+| `F10` | Quit |
+| `Esc Esc` | Quit (double-press) |
+| `Tab` | Switch active panel |
+| `Ctrl-U` | Swap panels |
+| `Ctrl-G` | Go to path (with directory autocomplete) |
+| `Ctrl-R` | Execute command (with path/command autocomplete; inside overlay, `Ctrl+E` toggles exec-only mode) |
+| `Ctrl-P` | Fuzzy finder |
+| `Ctrl-B` | Bookmarks |
+| `Ctrl-T` | Theme picker (live preview) |
+| `Ctrl-H` | Toggle hidden files |
+| `Ctrl-Q` | Quick view - preview selected file in the other pane |
+| `Shift-F5` | Copy path - pick and copy a path variant of the selected file to the clipboard |
+
+### Navigation
+
+| Key | Action |
+|-----|--------|
+| `Up` / `k` | Move cursor up |
+| `Down` / `j` | Move cursor down |
+| `PgUp` / `PgDn` | Page up / down |
+| `Home` / `End` | Jump to first / last |
+| `Enter` | Enter directory or edit file |
+| `Space` | Preview file (`$PAGER`) |
+| `Backspace` | Go to parent directory |
+| Type any letter | Quick search - jump to matching file |
+
+### Selection
+
+| Key | Action |
+|-----|--------|
+| `Insert` | Toggle selection on current file (and move down) |
+| `Shift-Up` | Select and move up |
+| `Shift-Down` | Select and move down |
+| `+` | Select group by shell pattern (e.g. `*.go`) |
+| `-` | Deselect group by shell pattern |
+| `*` | Invert selection of all entries |
+
+Group selection uses standard shell globs (`*`, `?`, `[abc]`) matched against
+file names. The dialog opens with `*` pre-filled, so `+` `Enter` tags every
+entry and `-` `Enter` clears the selection.
+
+### Bookmarks
+
+| Key | Action |
+|-----|--------|
+| `a` | Add current directory |
+| `d` | Delete selected bookmark |
+| `f` | Filter bookmarks |
+| `0`-`9` | Quick jump to bookmark |
+| `Enter` | Navigate to bookmark |
+| `Esc` | Close |
+
+### SSH servers
+
+Press `Shift-F2` to open the saved server list. Pick a server and it opens in the active panel where it behaves like any other directory: navigate it, copy or move files to the other panel with `F5` and `F6`. `Backspace` at the top level leaves the server and returns the panel to where it was.
+
+| Key | Action |
+|-----|--------|
+| `a` | Add a server |
+| `e` | Edit selected server |
+| `d` | Delete selected server |
+| `f` | Filter servers |
+| `0`-`9` | Quick jump to server |
+| `Enter` | Open in the active panel |
+| `Esc` | Close |
+
+You can also type an address straight into `Ctrl-G`:
+
+```
+ssh://user@host/var/log
+ssh://user@host:2222/srv/app
+```
+
+`Shift-F5` on a remote file copies its `ssh://` address, and bookmarking a remote directory stores that address, so the bookmark reconnects when you pick it.
+
+**`~/.ssh/config`.** Host aliases are used, so a name you already use at a shell prompt works here: `HostName`, `User`, `Port` and `IdentityFile` are read from the matching `Host` block. `ProxyJump` is not supported yet.
+
+**Authentication.** mdc uses your `ssh-agent` first, then the key file configured for the server (or `~/.ssh/id_ed25519`, `id_ecdsa`, `id_rsa`). Encrypted keys prompt for a passphrase, which is used for that connection and never written anywhere. Passwords are not supported.
+
+**Host keys** are checked against `~/.ssh/known_hosts`. A host you have not seen before shows its fingerprint for you to confirm; a host whose key has *changed* is refused. Resolve it by editing `known_hosts` once you have verified the new key.
+
+**What is unavailable on a remote panel.** The fuzzy finder (`F9`/`Ctrl-P`), running a file with `Enter`, and the command runner (`Ctrl-R`) all need a local working directory and do nothing on a server panel. `Ctrl-O` opens a shell in the panel's local directory instead. `F3` and `F4` work: the file is downloaded to a temporary copy, opened in `$PAGER`/`$EDITOR`, and written back if you changed it.
+
+**Progress.** Copying *from* a server shows the number of files completed rather than a percentage: counting a remote tree requires a full recursive scan before the first byte moves which can be very slow. Cancelling a transfer with `Esc` leaves nothing behind — files are written to a temp name and renamed into place only once complete.
+
+### Quick view
+
+Press `Ctrl-Q` to turn the inactive pane into a live, read-only preview of the file selected in the active pane. As you move the cursor, the preview follows the selection. Press `Tab` to move focus into the preview and scroll it (`Up`/`Down`, `PgUp`/`PgDn`, `Home`/`End`), and `Tab` again to return to the listing. Press `Esc` (or `Ctrl-Q` again) to close it.
+
+Non-text files stay visible in the preview with a short summary (binary, directory, empty) rather than garbled content. Only the head of large files is loaded.
+
+> **Note:** on some terminals `Ctrl-Q` is reserved for XON/XOFF flow control and never reaches the application. If it does nothing, rebind `quick_view` to another key in `config.toml`.
+
+### Archives
+
+Press `Enter` on any supported archive file to browse its contents as a virtual directory. `Backspace` exits the archive.
+
+Supported formats: `.tar`, `.tar.gz`, `.tar.bz2`, `.tar.xz`, `.zip`, `.7z`, `.rar`, `.gz`, `.bz2`, `.xz`, `.lz4`, `.lz`, `.zst`
+
+## Configuration
+
+Configuration lives at `~/.config/mdc/config.toml` (respects `XDG_CONFIG_HOME`).
+
+Copy the example to get started:
+
+```bash
+mkdir -p ~/.config/mdc
+cp config.example.toml ~/.config/mdc/config.toml
+```
+
+### Example config
+
+```toml
+# Theme (loads from ~/.config/mdc/themes/<name>.toml)
+theme = "catppuccin-mocha"
+
+[behavior]
+# What Enter does on a file: "edit", "preview", or "execute"
+enter_action = "edit"
+# What Space does on a file: "preview" or "edit"
+space_action = "preview"
+# Whether to ask for confirmation before executing a file.
+confirm_execute = true
+# Whether to pause and wait after execution before returning to Midday Commander.
+pause_after_execute = false
+
+[keys]
+quit          = ["f10", "ctrl+c"]
+toggle_panel  = "tab"
+copy          = "f5"
+move          = "f6"
+mkdir         = "f7"
+delete        = "f8"
+fuzzy_find    = ["f9", "ctrl+p"]
+bookmarks     = ["f2", "ctrl+b"]
+servers       = "shift+f2"
+help          = "f1"
+goto          = "ctrl+g"
+terminal      = "ctrl+o"
+quick_view    = "ctrl+q"
+# ... all keys are configurable
+```
+
+See [`config.example.toml`](config.example.toml) for the full reference.
+
+## Themes
+
+Themes are TOML files stored at `~/.config/mdc/themes/`.
+
+### Live theme picker
+
+Press `Ctrl-T` to open the theme picker overlay. Use `Up`/`Down` to browse themes with live preview — the entire UI updates instantly as you navigate. Press `Enter` to apply the selected theme or `Esc` to cancel and revert to the previous theme.
+
+### Installing themes
+
+```bash
+mkdir -p ~/.config/mdc/themes
+cp themes/*.toml ~/.config/mdc/themes/
+```
+
+### Theme format
+
+Themes use a `[palette]` section to define named colors, then reference them throughout:
+
+```toml
+name = "My Theme"
+
+[palette]
+bg     = "#1e1e2e"
+fg     = "#cdd6f4"
+blue   = "#89b4fa"
+green  = "#a6e3a1"
+
+[panel]
+border_fg        = "blue"
+border_bg        = "bg"
+border_active_fg = "fg"
+border_active_bg = "bg"
+
+[panel.file]
+normal_fg  = "fg"
+normal_bg  = "bg"
+dir_fg     = "blue"
+dir_bold   = true
+exec_fg    = "green"
+
+[statusbar]
+fg = "bg"
+bg = "blue"
+
+[menubar]
+fg           = "bg"
+bg           = "blue"
+fkey_hint_fg = "fg"
+fkey_hint_bg = "bg"
+fkey_label_fg = "bg"
+fkey_label_bg = "blue"
+```
+
+Colors can be hex values (`"#89b4fa"`), ANSI color numbers (`"4"`), or palette references (`"blue"`). Any missing values fall back to the built-in default theme.
+
+## Contributing
+
+Contributions are welcome. Please open an issue to discuss significant changes before submitting a pull request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/my-feature`)
+3. Commit your changes (`git commit -am 'Add my feature'`)
+4. Push to the branch (`git push origin feature/my-feature`)
+5. Open a Pull Request
+
+### Development
+
+```bash
+git clone https://github.com/kooler/MiddayCommander.git
+cd mdc
+make build
+make test
+```
+
+## License
+
+MIT License. See [LICENSE](LICENSE) for details.
+
+## Package repository
+
+Package repository hosting is graciously provided by [Cloudsmith](https://cloudsmith.com).
+Cloudsmith is the only fully hosted, cloud-native, universal package management solution, that
+enables your organization to create, store and share packages in any format, to any place, with total
+confidence.

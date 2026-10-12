@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/kooler/MiddayCommander/internal/ui/overlay"
+	uitext "github.com/kooler/MiddayCommander/internal/ui/text"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 )
 
@@ -160,19 +161,13 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 	boxW, boxH := m.BoxSize(screenWidth, screenHeight)
 	innerW := boxW - 2 // borders
 
-	bg := lipgloss.Color("#1e1e2e")
-	fg := lipgloss.Color("#cdd6f4")
-	subtle := lipgloss.Color("#a6adc8")
-	accent := lipgloss.Color("#89b4fa")
-	matchColor := lipgloss.Color("#f9e2af")
-	cursorBg := lipgloss.Color("#45475a")
-
-	bgStyle := lipgloss.NewStyle().Background(bg).Foreground(fg)
-	promptStyle := lipgloss.NewStyle().Background(bg).Foreground(accent).Bold(true)
-	matchHLStyle := lipgloss.NewStyle().Background(bg).Foreground(matchColor).Bold(true)
-	cursorStyle := lipgloss.NewStyle().Background(cursorBg).Foreground(fg)
+	styles := th.OverlayStyles()
+	bgStyle := styles.Base
+	promptStyle := styles.Prompt
+	matchHLStyle := styles.Highlight
+	cursorStyle := styles.Selected
 	normalStyle := bgStyle
-	dimStyle := lipgloss.NewStyle().Background(bg).Foreground(subtle)
+	dimStyle := styles.Dim
 
 	var contentLines []string
 
@@ -208,6 +203,7 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 			rel = mt.path
 		}
 		display := rel
+		display = uitext.SafeTerminalText(display)
 		if ansi.StringWidth(display) > innerW-1 {
 			display = overlay.TruncateLeftEllipsis(display, innerW-1)
 		}
@@ -229,8 +225,7 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 		footer += dimStyle.Render(strings.Repeat(" ", innerW-footerWidth))
 	}
 
-	return overlay.RenderBox("Find File", contentLines, footer, boxW, boxH,
-		accent, bg, accent)
+	return overlay.RenderBox("Find File", contentLines, footer, boxW, boxH, styles)
 }
 
 func (m Model) resultHeight() int {

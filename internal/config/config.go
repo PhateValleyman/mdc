@@ -78,6 +78,7 @@ type KeyBindings struct {
 	ADB          StringOrList `toml:"adb"`
 	Help         StringOrList `toml:"help"`
 	ThemePicker  StringOrList `toml:"theme_picker"`
+	Settings     StringOrList `toml:"settings"`
 	CmdExec      StringOrList `toml:"cmd_exec"`
 	Terminal     StringOrList `toml:"terminal"`
 	ToggleHidden StringOrList `toml:"toggle_hidden"`
@@ -164,6 +165,7 @@ func DefaultKeyBindings() KeyBindings {
 		ADB:          StringOrList{"shift+a"},
 		Help:         StringOrList{"f1"},
 		ThemePicker:  StringOrList{"ctrl+t"},
+		Settings:     StringOrList{"alt+o"},
 		CmdExec:      StringOrList{"ctrl+r"},
 		Terminal:     StringOrList{"ctrl+o"},
 		ToggleHidden: StringOrList{"ctrl+h"},
@@ -248,6 +250,7 @@ func mergeKeys(dst, src *KeyBindings) {
 	mergeKey(&dst.ADB, src.ADB)
 	mergeKey(&dst.Help, src.Help)
 	mergeKey(&dst.ThemePicker, src.ThemePicker)
+	mergeKey(&dst.Settings, src.Settings)
 	mergeKey(&dst.CmdExec, src.CmdExec)
 	mergeKey(&dst.Terminal, src.Terminal)
 	mergeKey(&dst.ToggleHidden, src.ToggleHidden)
@@ -321,6 +324,7 @@ func normalizeAllKeys(kb *KeyBindings) {
 	normalizeSlice(&kb.ADB)
 	normalizeSlice(&kb.Help)
 	normalizeSlice(&kb.ThemePicker)
+	normalizeSlice(&kb.Settings)
 	normalizeSlice(&kb.CmdExec)
 	normalizeSlice(&kb.Terminal)
 	normalizeSlice(&kb.ToggleHidden)

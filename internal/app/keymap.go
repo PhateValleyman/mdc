@@ -27,6 +27,7 @@ type KeyMap struct {
 	ADB             key.Binding
 	Help            key.Binding
 	ThemePicker     key.Binding
+	Settings        key.Binding
 	CmdExec         key.Binding
 	Terminal        key.Binding
 	ToggleHidden    key.Binding
@@ -59,6 +60,7 @@ func KeyMapFromConfig(keys config.KeyBindings) KeyMap {
 		ADB:             binding(keys.ADB, "adb devices"),
 		Help:            binding(keys.Help, "help"),
 		ThemePicker:     binding(keys.ThemePicker, "themes"),
+		Settings:        binding(keys.Settings, "settings"),
 		CmdExec:         binding(keys.CmdExec, "run cmd"),
 		Terminal:        binding(keys.Terminal, "terminal"),
 		ToggleHidden:    binding(keys.ToggleHidden, "toggle hidden"),

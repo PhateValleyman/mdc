@@ -236,26 +236,20 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 	boxW, boxH := m.BoxSize(screenWidth, screenHeight)
 	innerW := boxW - 2
 
-	bg := lipgloss.Color("#1e1e2e")
-	fg := lipgloss.Color("#cdd6f4")
-	subtle := lipgloss.Color("#a6adc8")
-	accent := lipgloss.Color("#89b4fa")
-	highlight := lipgloss.Color("#f9e2af")
-	cursorBg := lipgloss.Color("#45475a")
-
-	bgStyle := lipgloss.NewStyle().Background(bg).Foreground(fg)
-	cursorStyle := lipgloss.NewStyle().Background(cursorBg).Foreground(fg)
-	dimStyle := lipgloss.NewStyle().Background(bg).Foreground(subtle)
-	numStyle := lipgloss.NewStyle().Background(bg).Foreground(highlight)
+	styles := th.OverlayStyles()
+	bgStyle := styles.Base
+	cursorStyle := styles.Selected
+	dimStyle := styles.Dim
+	numStyle := styles.Highlight
 
 	var contentLines []string
 
-	promptStyle := lipgloss.NewStyle().Background(bg).Foreground(accent).Bold(true)
+	promptStyle := styles.Prompt
 
 	// Filter or add input line
 	hasExtraLine := false
 	if m.filtering {
-		filterLine := promptStyle.Render(" Filter: ") + bgStyle.Render(m.filter+"_")
+		filterLine := promptStyle.Render(" Filter: ") + bgStyle.Render(uitext.SafeTerminalText(m.filter)+"_")
 		filterWidth := lipgloss.Width(filterLine)
 		if filterWidth < innerW {
 			filterLine += bgStyle.Render(strings.Repeat(" ", innerW-filterWidth))
@@ -263,7 +257,7 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 		contentLines = append(contentLines, filterLine)
 		hasExtraLine = true
 	} else if m.adding {
-		addLine := promptStyle.Render(" Name: ") + bgStyle.Render(m.addName+"_")
+		addLine := promptStyle.Render(" Name: ") + bgStyle.Render(uitext.SafeTerminalText(m.addName)+"_")
 		addWidth := lipgloss.Width(addLine)
 		if addWidth < innerW {
 			addLine += bgStyle.Render(strings.Repeat(" ", innerW-addWidth))
@@ -295,6 +289,7 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 		if b.Name != "" {
 			display = b.Name + " → " + b.Path
 		}
+		display = uitext.SafeTerminalText(display)
 		if ansi.StringWidth(display) > innerW-4 {
 			display = overlay.TruncateLeftEllipsis(display, innerW-4)
 		}
@@ -317,7 +312,7 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 	}
 
 	// Footer with key hints
-	keyStyle := lipgloss.NewStyle().Background(bg).Foreground(accent).Bold(true)
+	keyStyle := styles.Prompt
 	sepStyle := dimStyle
 
 	footer := keyStyle.Render(" a") + sepStyle.Render(":Add") +
@@ -336,6 +331,5 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 		footer += dimStyle.Render(strings.Repeat(" ", innerW-footerWidth))
 	}
 
-	return overlay.RenderBox("Bookmarks", contentLines, footer, boxW, boxH,
-		accent, bg, highlight)
+	return overlay.RenderBox("Bookmarks", contentLines, footer, boxW, boxH, styles)
 }

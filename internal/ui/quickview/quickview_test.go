@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	uitext "github.com/kooler/MiddayCommander/internal/ui/text"
+	"github.com/kooler/MiddayCommander/internal/ui/theme"
 	"github.com/kooler/MiddayCommander/internal/vfs"
 	"github.com/kooler/MiddayCommander/internal/vfs/local"
 	"github.com/kooler/MiddayCommander/internal/vfs/memfs"
@@ -93,6 +95,58 @@ func TestTruncationFlag(t *testing.T) {
 	m.SetFile(localRef(p), statOf(t, p), false, true)
 	if !m.truncated {
 		t.Error("expected truncated = true for oversized file")
+	}
+}
+
+func TestViewSanitizesFilenameOnlyForRender(t *testing.T) {
+	const hostileName = "f\x1b]x\x07\u202e"
+	const originalPath = "/safe/path"
+	m := Model{path: originalPath, name: hostileName, width: 40, height: 3, kind: kindDir}
+
+	view := m.View(theme.Default(), false)
+	safeName := uitext.SafeTerminalText(hostileName)
+	if !strings.Contains(view, safeName) {
+		t.Fatalf("quick view should contain sanitized filename %q: %q", safeName, view)
+	}
+	if strings.Contains(view, hostileName) {
+		t.Fatalf("quick view exposed the raw filename: %q", view)
+	}
+	if m.name != hostileName || m.path != originalPath {
+		t.Fatalf("rendering changed the preview target: name=%q path=%q", m.name, m.path)
+	}
+}
+
+func TestViewSanitizesTextContentsOnlyForRender(t *testing.T) {
+	const hostileContent = "text\x1b]52;c;payload\a\u202e"
+	m := Model{path: "/safe/file.txt", name: "file.txt", lines: []string{hostileContent}, width: 60, height: 2, kind: kindText}
+
+	view := m.View(theme.Default(), false)
+	safeContent := uitext.SafeTerminalText(hostileContent)
+	if !strings.Contains(view, safeContent) {
+		t.Fatalf("quick view should contain sanitized file content %q: %q", safeContent, view)
+	}
+	if strings.Contains(view, hostileContent) {
+		t.Fatalf("quick view exposed raw file content: %q", view)
+	}
+	if m.lines[0] != hostileContent {
+		t.Fatalf("rendering changed source file content: %q", m.lines[0])
+	}
+}
+
+func TestViewSanitizesErrorMessagesOnlyForRender(t *testing.T) {
+	const hostileError = "cannot read\x1b]52;c;payload\a\u202e"
+	m := Model{path: "/safe/file", name: "file", errMsg: hostileError, width: 60, height: 2, kind: kindError}
+
+	view := m.View(theme.Default(), false)
+	safeError := uitext.SafeTerminalText(hostileError)
+	if !strings.Contains(view, safeError) {
+		t.Fatalf("quick view should contain sanitized error %q: %q", safeError, view)
+	}
+	if strings.Contains(view, hostileError) {
+		t.Fatalf("quick view exposed raw error: %q", view)
+	}
+	if m.errMsg != hostileError {
+		t.Fatalf("rendering changed stored error: %q", m.errMsg)
 	}
 }
 

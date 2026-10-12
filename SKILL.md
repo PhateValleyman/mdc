@@ -18,6 +18,8 @@
 - Use rclone's native terminal configuration/authentication commands and token storage; never pass configuration answers or secrets in process arguments or invent a stdin substitute for rclone's interactive flow. Never implement provider-specific OAuth token handling inside MDC unless there is a compelling documented reason.
 - Keep key hints in overlays synchronized with actual key handling and README documentation.
 - Preserve dual-panel navigation and existing MC-style function-key behavior.
+- Use `theme.Theme.OverlayStyles()` for dialogs, pickers, help, and settings; legacy themes derive semantic overlay colors from panel/menu roles, with optional `[overlay]` TOML overrides.
+- Keep any trailing menu additions independent of the ten F1–F10 slots, and cover settings routing plus narrow-terminal behavior with focused tests.
 - Pass filesystem-, provider-, and device-derived labels through `internal/ui/text.SafeTerminalText` before terminal rendering; keep stored paths and values unchanged for operations.
 
 ## Compatibility and security

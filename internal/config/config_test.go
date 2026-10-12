@@ -53,3 +53,24 @@ func TestADBKeyDefaultAndOverride(t *testing.T) {
 		t.Fatalf("loaded adb key = %#v, want configured override", loaded.Keys.ADB)
 	}
 }
+
+func TestSettingsKeyDefaultAndOverride(t *testing.T) {
+	defaults := Default()
+	if len(defaults.Keys.Settings) != 1 || defaults.Keys.Settings[0] != "alt+o" {
+		t.Fatalf("default settings key = %#v, want alt+o", defaults.Keys.Settings)
+	}
+
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	configDir := filepath.Join(xdg, "mdc")
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "config.toml"), []byte("[keys]\nsettings = \"alt+s\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	loaded := Load()
+	if len(loaded.Keys.Settings) != 1 || loaded.Keys.Settings[0] != "alt+s" {
+		t.Fatalf("loaded settings key = %#v, want configured override", loaded.Keys.Settings)
+	}
+}

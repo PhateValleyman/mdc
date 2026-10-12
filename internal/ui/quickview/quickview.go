@@ -17,6 +17,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/kooler/MiddayCommander/internal/ui/overlay"
+	uitext "github.com/kooler/MiddayCommander/internal/ui/text"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 	"github.com/kooler/MiddayCommander/internal/vfs"
 )
@@ -216,14 +217,19 @@ func (m Model) View(th theme.Theme, focused bool) string {
 
 	innerWidth := m.width - 2
 
+	// Render a sanitized copy so filenames stay unchanged for file operations.
+	renderModel := m
+	renderModel.name = uitext.SafeTerminalText(m.name)
+	renderModel.errMsg = uitext.SafeTerminalText(m.errMsg)
+
 	// Header: filename + preview tag.
-	header := m.name + " [preview]"
+	header := renderModel.name + " [preview]"
 	headerLine := borderStyle.Render("┌") +
 		headerStyle.Render(" "+overlay.PadOrTruncDots(header, innerWidth-2)+" ") +
 		borderStyle.Render("┐")
 
 	// Body.
-	content := m.contentLines(innerWidth, th.FileNormal)
+	content := renderModel.contentLines(innerWidth, th.FileNormal)
 	var rows []string
 	end := m.offset + m.height
 	if end > len(content) {
@@ -253,7 +259,8 @@ func (m Model) contentLines(width int, normal lipgloss.Style) []string {
 	render := func(ss []string) []string {
 		out := make([]string, len(ss))
 		for i, s := range ss {
-			out[i] = normal.Render(overlay.PadOrTruncDots(s, width))
+			safe := uitext.SafeTerminalText(s)
+			out[i] = normal.Render(overlay.PadOrTruncDots(safe, width))
 		}
 		return out
 	}

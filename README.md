@@ -172,6 +172,7 @@ Now `mdcd` launches mdc; when you quit, the shell `cd`s into the directory the a
 | `Ctrl-P` | Fuzzy finder |
 | `Ctrl-B` | Bookmarks |
 | `Ctrl-T` | Theme picker (live preview) |
+| `Alt-O` | Settings (theme and hidden-file visibility) |
 | `Ctrl-H` | Toggle hidden files |
 | `Ctrl-Q` | Quick view - preview selected file in the other pane |
 | `Shift-F5` | Copy path - pick and copy a path variant of the selected file to the clipboard |
@@ -312,6 +313,7 @@ mkdir         = "f7"
 delete        = "f8"
 fuzzy_find    = ["f9", "ctrl+p"]
 bookmarks     = ["f2", "ctrl+b"]
+settings      = "alt+o"
 servers       = "shift+f2"
 rclone        = "shift+r"
 help          = "f1"
@@ -322,6 +324,8 @@ quick_view    = "ctrl+q"
 ```
 
 See [`config.example.toml`](config.example.toml) for the full reference.
+
+The `Settings` overlay is also available from the trailing item on the function-key menu. It provides the live theme picker and hidden-file visibility toggle without changing the F1–F10 actions.
 
 ## Themes
 
@@ -350,6 +354,7 @@ bg     = "#1e1e2e"
 fg     = "#cdd6f4"
 blue   = "#89b4fa"
 green  = "#a6e3a1"
+red    = "#f38ba8"
 
 [panel]
 border_fg        = "blue"
@@ -375,6 +380,19 @@ fkey_hint_fg = "fg"
 fkey_hint_bg = "bg"
 fkey_label_fg = "bg"
 fkey_label_bg = "blue"
+
+# Optional semantic colors for dialogs and pickers. Older themes derive
+# these roles from existing panel/menu colors when this section is absent.
+[overlay]
+bg        = "bg"
+fg        = "fg"
+subtle    = "blue"
+accent    = "blue"
+highlight = "green"
+cursor_bg = "blue"
+success   = "green"
+danger    = "red"
+border    = "blue"
 ```
 
 Colors can be hex values (`"#89b4fa"`), ANSI color numbers (`"4"`), or palette references (`"blue"`). Any missing values fall back to the built-in default theme.

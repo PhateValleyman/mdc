@@ -69,6 +69,8 @@ rclone        = "shift+r"
 adb           = "shift+a"
 help          = ["f1"]
 theme_picker  = "ctrl+t"
+# Open the settings overlay with theme and hidden-file options.
+settings      = "alt+o"
 cmd_exec      = "ctrl+r"
 terminal      = "ctrl+o"
 toggle_hidden = "ctrl+h"

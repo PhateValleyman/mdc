@@ -20,6 +20,7 @@ import (
 	"github.com/kooler/MiddayCommander/internal/ui/panel"
 	rcloneui "github.com/kooler/MiddayCommander/internal/ui/rclone"
 	"github.com/kooler/MiddayCommander/internal/ui/servers"
+	"github.com/kooler/MiddayCommander/internal/ui/themepicker"
 	"github.com/kooler/MiddayCommander/internal/vfs"
 )
 
@@ -61,6 +62,43 @@ func drain(t *testing.T, cmd tea.Cmd) tea.Msg {
 		t.Fatal("want a command, got nil")
 	}
 	return cmd()
+}
+
+func TestSettingsShortcutAndVisibilityToggle(t *testing.T) {
+	isolate(t)
+	m := newModel(t)
+	initial := m.leftPanel.ShowHidden()
+
+	m, _ = run(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}, Alt: true})
+	if m.settings == nil {
+		t.Fatal("Alt+O should open the settings overlay")
+	}
+	if !strings.Contains(m.View(), "Settings") {
+		t.Fatal("settings overlay should be visible")
+	}
+
+	updatedSettings, _ := m.settings.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m.settings = &updatedSettings
+	_, cmd := m.settings.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m, _ = run(t, m, drain(t, cmd))
+	if m.leftPanel.ShowHidden() == initial || m.rightPanel.ShowHidden() == initial {
+		t.Fatal("settings visibility toggle should update both panels")
+	}
+	if m.settings == nil {
+		t.Fatal("settings overlay should remain open after toggling a preference")
+	}
+
+	updatedSettings, _ = m.settings.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m.settings = &updatedSettings
+	_, cmd = m.settings.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m, _ = run(t, m, drain(t, cmd))
+	if m.settings != nil || m.themePicker == nil {
+		t.Fatal("selecting Theme should replace Settings with the existing theme picker")
+	}
+	m, _ = run(t, m, themepicker.DismissMsg{})
+	if m.settings == nil || m.themePicker != nil {
+		t.Fatal("cancelling theme picker from Settings should return to Settings")
+	}
 }
 
 // serverConnect is what the server list sends when a server is picked.
@@ -522,6 +560,36 @@ func TestSwappingPanelsKeepsTheRemoteConnection(t *testing.T) {
 	}
 	if _, err := conn.FS().ReadDir(srv.Root); err != nil {
 		t.Errorf("the connection must survive a panel swap: %v", err)
+	}
+}
+
+func TestSwappingPanelsKeepsActiveFlagAlignedWithFocus(t *testing.T) {
+	isolate(t)
+	m := newModel(t)
+	assertPanelFocusFlags(t, m)
+
+	m, _ = run(t, m, tea.KeyMsg{Type: tea.KeyCtrlU})
+	assertPanelFocusFlags(t, m)
+	if m.focus != FocusLeft {
+		t.Fatalf("swapping while left is focused should keep the side focus, got %v", m.focus)
+	}
+
+	m, _ = run(t, m, tea.KeyMsg{Type: tea.KeyTab})
+	assertPanelFocusFlags(t, m)
+	m, _ = run(t, m, tea.KeyMsg{Type: tea.KeyCtrlU})
+	assertPanelFocusFlags(t, m)
+	if m.focus != FocusRight {
+		t.Fatalf("swapping while right is focused should keep the side focus, got %v", m.focus)
+	}
+}
+
+func assertPanelFocusFlags(t *testing.T, m Model) {
+	t.Helper()
+	if !m.activePanel().Active() {
+		t.Fatal("the keyboard-target panel should have its active flag set")
+	}
+	if m.inactivePanelModel().Active() {
+		t.Fatal("the non-focused panel should have its active flag cleared")
 	}
 }
 

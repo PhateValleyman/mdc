@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	uitext "github.com/kooler/MiddayCommander/internal/ui/text"
+	"github.com/kooler/MiddayCommander/internal/ui/theme"
 )
 
 // Place composites a box on top of a background string, centered.
@@ -48,10 +49,17 @@ func Place(bg string, boxContent string, bgWidth, bgHeight, boxWidth, boxHeight 
 }
 
 // RenderBox draws a bordered box with title, content lines, and optional footer.
-func RenderBox(title string, contentLines []string, footer string, width, height int, borderColor, bgColor, titleColor lipgloss.Color) string {
-	borderStyle := lipgloss.NewStyle().Foreground(borderColor).Background(bgColor)
-	titleStyle := lipgloss.NewStyle().Foreground(titleColor).Background(bgColor).Bold(true)
-	fillStyle := lipgloss.NewStyle().Background(bgColor)
+func RenderBox(title string, contentLines []string, footer string, width, height int, styles theme.OverlayStyles) string {
+	if width < 2 || height < 2 {
+		return PadOrTrunc(title, width)
+	}
+	if height == 2 {
+		footer = ""
+	}
+
+	borderStyle := styles.Border
+	titleStyle := styles.Title
+	fillStyle := styles.Base
 
 	innerWidth := width - 2
 
@@ -78,23 +86,16 @@ func RenderBox(title string, contentLines []string, footer string, width, height
 	for i := 0; i < contentHeight; i++ {
 		var row string
 		if i < len(contentLines) {
-			row = contentLines[i]
+			row = fitLine(contentLines[i], innerWidth, fillStyle)
 		} else {
 			row = fillStyle.Render(strings.Repeat(" ", innerWidth))
-		}
-		rowWidth := lipgloss.Width(row)
-		if rowWidth < innerWidth {
-			row += fillStyle.Render(strings.Repeat(" ", innerWidth-rowWidth))
 		}
 		lines = append(lines, borderStyle.Render("│")+row+borderStyle.Render("│"))
 	}
 
 	// Footer
 	if footer != "" {
-		footerWidth := lipgloss.Width(footer)
-		if footerWidth < innerWidth {
-			footer += fillStyle.Render(strings.Repeat(" ", innerWidth-footerWidth))
-		}
+		footer = fitLine(footer, innerWidth, fillStyle)
 		lines = append(lines, borderStyle.Render("│")+footer+borderStyle.Render("│"))
 	}
 
@@ -103,6 +104,21 @@ func RenderBox(title string, contentLines []string, footer string, width, height
 	lines = append(lines, bottom)
 
 	return strings.Join(lines, "\n")
+}
+
+func fitLine(s string, width int, fill lipgloss.Style) string {
+	if width < 1 {
+		return ""
+	}
+	w := lipgloss.Width(s)
+	if w > width {
+		s = ansi.Truncate(s, width, "")
+		w = lipgloss.Width(s)
+	}
+	if w < width {
+		s += fill.Render(strings.Repeat(" ", width-w))
+	}
+	return s
 }
 
 // TruncateLeftEllipsis keeps the right-most cells of s, prefixing with an

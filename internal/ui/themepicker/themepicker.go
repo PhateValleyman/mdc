@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/kooler/MiddayCommander/internal/ui/overlay"
+	uitext "github.com/kooler/MiddayCommander/internal/ui/text"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 )
 
@@ -181,21 +182,16 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 	boxW, boxH := m.BoxSize(screenWidth, screenHeight)
 	innerW := boxW - 2
 
-	bg := lipgloss.Color("#1e1e2e")
-	fg := lipgloss.Color("#cdd6f4")
-	subtle := lipgloss.Color("#a6adc8")
-	accent := lipgloss.Color("#89b4fa")
-	highlight := lipgloss.Color("#f9e2af")
-	cursorBg := lipgloss.Color("#45475a")
-	remoteFg := lipgloss.Color("#a6e3a1") // green for remote
-
-	bgStyle := lipgloss.NewStyle().Background(bg).Foreground(fg)
-	cursorStyle := lipgloss.NewStyle().Background(cursorBg).Foreground(fg)
-	dimStyle := lipgloss.NewStyle().Background(bg).Foreground(subtle)
-	tagLocalStyle := lipgloss.NewStyle().Background(bg).Foreground(subtle)
-	tagRemoteStyle := lipgloss.NewStyle().Background(bg).Foreground(remoteFg)
-	tagLocalCursorStyle := lipgloss.NewStyle().Background(cursorBg).Foreground(subtle)
-	tagRemoteCursorStyle := lipgloss.NewStyle().Background(cursorBg).Foreground(remoteFg)
+	styles := th.OverlayStyles()
+	bgStyle := styles.Base
+	cursorStyle := styles.Selected
+	dimStyle := styles.Dim
+	bg := bgStyle.GetBackground()
+	cursorBg := cursorStyle.GetBackground()
+	tagLocalStyle := styles.Dim
+	tagRemoteStyle := styles.Success
+	tagLocalCursorStyle := lipgloss.NewStyle().Background(cursorBg).Foreground(dimStyle.GetForeground())
+	tagRemoteCursorStyle := lipgloss.NewStyle().Background(cursorBg).Foreground(styles.Success.GetForeground())
 
 	var contentLines []string
 
@@ -222,7 +218,7 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 		if isActive {
 			markerCh = "●"
 		}
-		dot := lipgloss.NewStyle().Background(rowBg).Foreground(highlight).Render(markerCh)
+		dot := lipgloss.NewStyle().Background(rowBg).Foreground(styles.Highlight.GetForeground()).Render(markerCh)
 		gutter := gap.Render(" ") + dot + gap.Render(" ")
 
 		// Build prefix tag
@@ -241,7 +237,7 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 			tag = ""
 		}
 
-		display := entry.Name
+		display := uitext.SafeTerminalText(entry.Name)
 		maxNameW := innerW - 4 - ansi.StringWidth(tag) // 3-cell gutter + 1-col right margin
 		if ansi.StringWidth(display) > maxNameW {
 			display = overlay.PadOrTruncDots(display, maxNameW)
@@ -284,7 +280,7 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 	}
 
 	// Footer with key hints
-	keyStyle := lipgloss.NewStyle().Background(bg).Foreground(accent).Bold(true)
+	keyStyle := styles.Prompt
 	sepStyle := dimStyle
 
 	footer := keyStyle.Render(" Enter") + sepStyle.Render(":Apply") +
@@ -302,6 +298,5 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 		title = "Theme  " + spinnerFrames[m.spinner] + " fetching remote…"
 	}
 
-	return overlay.RenderBox(title, contentLines, footer, boxW, boxH,
-		accent, bg, highlight)
+	return overlay.RenderBox(title, contentLines, footer, boxW, boxH, styles)
 }

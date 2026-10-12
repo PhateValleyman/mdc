@@ -282,19 +282,14 @@ func (m Model) resultHeight() int {
 	return h - 5
 }
 
-func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
+func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 	boxW, boxH := m.BoxSize(screenWidth, screenHeight)
 	innerW := max(1, boxW-2)
-	bg := lipgloss.Color("#1e1e2e")
-	fg := lipgloss.Color("#cdd6f4")
-	subtle := lipgloss.Color("#a6adc8")
-	accent := lipgloss.Color("#89b4fa")
-	highlight := lipgloss.Color("#f9e2af")
-	cursorBg := lipgloss.Color("#45475a")
-	base := lipgloss.NewStyle().Background(bg).Foreground(fg)
-	dim := lipgloss.NewStyle().Background(bg).Foreground(subtle)
-	key := lipgloss.NewStyle().Background(bg).Foreground(accent).Bold(true)
-	selected := lipgloss.NewStyle().Background(cursorBg).Foreground(fg)
+	styles := th.OverlayStyles()
+	base := styles.Base
+	dim := styles.Dim
+	key := styles.Prompt
+	selected := styles.Selected
 
 	var lines []string
 	if m.connectMode {
@@ -310,7 +305,7 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 			lines = append(lines, key.Render(" Filter: ")+base.Render(uitext.SafeTerminalText(m.filter)+"_"))
 		}
 		if m.connectNotice != "" {
-			lines = append(lines, dim.Render(" "+m.connectNotice))
+			lines = append(lines, dim.Render(" "+uitext.SafeTerminalText(m.connectNotice)))
 		}
 		if m.loading {
 			lines = append(lines, dim.Render(" Scanning adb devices…"))
@@ -364,7 +359,7 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 			footer = dim.Render(" Please wait…")
 		}
 	}
-	return overlay.RenderBox("ADB devices", lines, footer, boxW, boxH, accent, bg, highlight)
+	return overlay.RenderBox("ADB devices", lines, footer, boxW, boxH, styles)
 }
 
 func dropLastRune(value string) string {

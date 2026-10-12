@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	uitext "github.com/kooler/MiddayCommander/internal/ui/text"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 	"github.com/kooler/MiddayCommander/internal/vfs/adbfs"
 )
@@ -63,5 +64,24 @@ func TestConnectAndFilterInputsCannotReorderDisplayedText(t *testing.T) {
 	view = m.View(theme.Theme{}, 100, 30)
 	if strings.Contains(view, "\u202e") {
 		t.Fatal("ADB filter retained a bidi control character")
+	}
+}
+
+func TestConnectNoticeSanitizesTargetOnlyForRender(t *testing.T) {
+	const hostileTarget = "phone\x1b]52;c;payload\a\u202e"
+	m := New(100, 30)
+	m.HandleDevices(DevicesLoadedMsg{})
+	m.HandleConnect(ConnectDoneMsg{Target: hostileTarget})
+
+	view := m.View(theme.Theme{}, 100, 30)
+	safeNotice := uitext.SafeTerminalText(m.connectNotice)
+	if !strings.Contains(view, safeNotice) {
+		t.Fatalf("ADB view should contain sanitized connect notice %q: %q", safeNotice, view)
+	}
+	if strings.Contains(view, hostileTarget) {
+		t.Fatalf("ADB view exposed the raw connect target: %q", view)
+	}
+	if !strings.Contains(m.connectNotice, hostileTarget) {
+		t.Fatalf("connect notice lost its target: %q", m.connectNotice)
 	}
 }

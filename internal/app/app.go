@@ -32,6 +32,7 @@ import (
 	"github.com/kooler/MiddayCommander/internal/ui/quickview"
 	rcloneui "github.com/kooler/MiddayCommander/internal/ui/rclone"
 	"github.com/kooler/MiddayCommander/internal/ui/servers"
+	settingsui "github.com/kooler/MiddayCommander/internal/ui/settings"
 	uitext "github.com/kooler/MiddayCommander/internal/ui/text"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 	"github.com/kooler/MiddayCommander/internal/ui/themepicker"
@@ -90,6 +91,7 @@ type Model struct {
 	rclonePicker *rcloneui.Model
 	help         *help.Model
 	themePicker  *themepicker.Model
+	settings     *settingsui.Model
 	cmdExec      *cmdexec.Model
 	copyPath     *copypath.Model
 
@@ -100,7 +102,8 @@ type Model struct {
 	quickFocus bool
 
 	// Saved theme for reverting on Esc in theme picker
-	themeBeforePick theme.Theme
+	themeBeforePick         theme.Theme
+	themePickerFromSettings bool
 
 	// Bookmark store
 	bookmarkStore *bookmark.Store
@@ -261,6 +264,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.adbPicker != nil {
 			m.adbPicker.SetSize(msg.Width, msg.Height)
 		}
+		if m.settings != nil {
+			m.settings.SetSize(msg.Width, msg.Height)
+		}
 		m.recalcLayout()
 		return m, nil
 
@@ -285,10 +291,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	// Help messages
+		// Help messages
 	case help.DismissMsg:
 		m.help = nil
 		return m, nil
+
+	case settingsui.DismissMsg:
+		m.settings = nil
+		return m, nil
+
+	case settingsui.ThemeRequestedMsg:
+		return m.startThemePickerFromSettings()
+
+	case settingsui.ShowHiddenChangedMsg:
+		if m.leftPanel.ShowHidden() != msg.Show {
+			m.leftPanel.ToggleHidden()
+		}
+		if m.rightPanel.ShowHidden() != msg.Show {
+			m.rightPanel.ToggleHidden()
+		}
+		show := msg.Show
+		m.cfg.Behavior.ShowHidden = &show
+		if m.settings != nil {
+			m.settings.SetShowHidden(msg.Show)
+		}
+		_ = config.SaveShowHidden(msg.Show)
+		return m, m.refreshBothPanels()
 
 	// Theme picker messages
 	case themepicker.RemoteThemesMsg:
@@ -312,6 +340,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.theme = msg.Theme
 		m.cfg.Theme = msg.Key
 		m.themePicker = nil
+		returnToSettings := m.themePickerFromSettings
+		m.themePickerFromSettings = false
 		// Save remote theme file locally so it's available on next startup.
 		if msg.Source == theme.SourceRemote && len(msg.RawTOML) > 0 {
 			dir := theme.ThemesDir()
@@ -319,11 +349,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			_ = os.WriteFile(filepath.Join(dir, msg.Key+".toml"), msg.RawTOML, 0o644)
 		}
 		_ = config.SaveTheme(msg.Key)
+		if returnToSettings {
+			m.openSettings()
+		}
 		return m, nil
 
 	case themepicker.DismissMsg:
 		m.theme = m.themeBeforePick
 		m.themePicker = nil
+		returnToSettings := m.themePickerFromSettings
+		m.themePickerFromSettings = false
+		if returnToSettings {
+			m.openSettings()
+		}
 		return m, nil
 
 	case rcloneui.RemotesLoadedMsg:
@@ -668,6 +706,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.themePicker = &newTP
 			return m, cmd
 		}
+		if m.settings != nil {
+			newSettings, cmd := m.settings.Update(msg)
+			m.settings = &newSettings
+			return m, cmd
+		}
 
 		// Fuzzy finder gets priority when active
 		if m.fuzzy != nil {
@@ -762,6 +805,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil // swap disabled while previewing
 			}
 			m.leftPanel, m.rightPanel = m.rightPanel, m.leftPanel
+			m.leftPanel.SetActive(m.focus == FocusLeft)
+			m.rightPanel.SetActive(m.focus == FocusRight)
 			m.swapPanelConns()
 			m.recalcLayout()
 			return m, nil
@@ -819,6 +864,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, m.keyMap.ThemePicker):
 			return m.startThemePicker()
+
+		case key.Matches(msg, m.keyMap.Settings):
+			return m.startSettings()
 
 		case key.Matches(msg, m.keyMap.CmdExec):
 			return m.startCmdExec()
@@ -919,6 +967,10 @@ func (m Model) View() string {
 		box := m.themePicker.View(m.theme, m.width, m.height)
 		bw, bh := m.themePicker.BoxSize(m.width, m.height)
 		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
+	} else if m.settings != nil {
+		box := m.settings.View(m.theme, m.width, m.height)
+		bw, bh := m.settings.BoxSize(m.width, m.height)
+		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
 	} else if m.fuzzy != nil {
 		box := m.fuzzy.View(m.theme, m.width, m.height)
 		bw, bh := m.fuzzy.BoxSize(m.width, m.height)
@@ -1011,6 +1063,8 @@ func (m Model) dispatchKey(raw string) (tea.Model, tea.Cmd) {
 		return m.startFuzzyFind()
 	case contains(cfg.ThemePicker, raw):
 		return m.startThemePicker()
+	case contains(cfg.Settings, raw):
+		return m.startSettings()
 	case contains(cfg.CmdExec, raw):
 		return m.startCmdExec()
 	case contains(cfg.Terminal, raw):
@@ -1184,6 +1238,16 @@ func (m Model) startServers() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) startThemePicker() (tea.Model, tea.Cmd) {
+	return m.openThemePicker(false)
+}
+
+func (m Model) startThemePickerFromSettings() (tea.Model, tea.Cmd) {
+	return m.openThemePicker(true)
+}
+
+func (m Model) openThemePicker(fromSettings bool) (tea.Model, tea.Cmd) {
+	m.settings = nil
+	m.themePickerFromSettings = fromSettings
 	m.themeBeforePick = m.theme
 	available := theme.ListAvailable()
 	activeKey := m.cfg.Theme
@@ -1201,6 +1265,20 @@ func (m Model) startThemePicker() (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, tea.Batch(themepicker.FetchRemote(localKeys), themepicker.SpinnerTick())
+}
+
+func (m Model) startSettings() (tea.Model, tea.Cmd) {
+	m.openSettings()
+	return m, nil
+}
+
+func (m *Model) openSettings() {
+	themeName := m.cfg.Theme
+	if themeName == "" {
+		themeName = theme.DefaultKey
+	}
+	settings := settingsui.New(themeName, m.leftPanel.ShowHidden(), m.width, m.height)
+	m.settings = &settings
 }
 
 func (m Model) startCopyPath() (tea.Model, tea.Cmd) {

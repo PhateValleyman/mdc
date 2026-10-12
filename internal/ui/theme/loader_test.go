@@ -75,3 +75,84 @@ func TestGotarIsTheEmbeddedDefault(t *testing.T) {
 		t.Fatal("empty theme selection did not resolve to Gotar")
 	}
 }
+
+func TestLegacyThemeDerivesOverlayPalette(t *testing.T) {
+	data := []byte(`
+[palette]
+bg = "#101820"
+fg = "#f0f0f0"
+subtle = "#8090a0"
+accent = "#50c0d0"
+selected = "#e0c050"
+cursor = "#4080a0"
+success = "#60c060"
+border = "#303840"
+active = "#70b0c0"
+
+[panel]
+border_fg = "border"
+border_active_fg = "active"
+
+[panel.file]
+normal_fg = "fg"
+normal_bg = "bg"
+exec_fg = "success"
+cursor_bg = "cursor"
+selected_fg = "selected"
+
+[menubar]
+fkey_hint_fg = "accent"
+`)
+	loaded, err := ParseTOML("legacy", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := loaded.Theme.Overlay
+	want := OverlayPalette{
+		Background: "#101820",
+		Foreground: "#f0f0f0",
+		Subtle:     "#50c0d0",
+		Accent:     "#50c0d0",
+		Highlight:  "#e0c050",
+		CursorBG:   "#4080a0",
+		Success:    "#60c060",
+		Danger:     Default().Overlay.Danger,
+		Border:     "#303840",
+	}
+	if got != want {
+		t.Fatalf("derived overlay palette = %#v, want %#v", got, want)
+	}
+}
+
+func TestOverlayPaletteCanBeOverridden(t *testing.T) {
+	data := []byte(`
+[palette]
+bg = "#101820"
+fg = "#f0f0f0"
+custom_bg = "#202830"
+custom_accent = "#f09030"
+
+[panel.file]
+normal_fg = "fg"
+normal_bg = "bg"
+
+[overlay]
+bg = "custom_bg"
+accent = "custom_accent"
+`)
+	loaded, err := ParseTOML("custom", data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Theme.Overlay.Background != lipgloss.Color("#202830") || loaded.Theme.Overlay.Accent != lipgloss.Color("#f09030") {
+		t.Fatalf("explicit overlay colors not applied: %#v", loaded.Theme.Overlay)
+	}
+}
+
+func TestZeroThemeOverlayStylesUseMCClassicFallback(t *testing.T) {
+	want := Default().Overlay
+	got := (Theme{}).OverlayStyles()
+	if got.Base.GetBackground() != want.Background || got.Base.GetForeground() != want.Foreground {
+		t.Fatalf("zero-value theme did not use fallback colors: fg=%v bg=%v", got.Base.GetForeground(), got.Base.GetBackground())
+	}
+}

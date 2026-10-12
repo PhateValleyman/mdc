@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -345,20 +346,31 @@ func (m Model) BoxSize(screenWidth, screenHeight int) (int, int) {
 
 // View renders the dialog as a floating box using the shared overlay style.
 func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
+	// Sanitize dynamic terminal text in this value copy only; the original model
+	// retains the exact path, message, and input used by the operation.
+	m.title = uitext.SafeTerminalText(m.title)
+	m.message = uitext.SafeTerminalText(m.message)
+	m.current = uitext.SafeTerminalText(m.current)
+	if !m.masked {
+		m.input, m.inputPos = safeInputForRender(m.input, m.inputPos)
+	}
+	if len(m.suggestions) > 0 {
+		safeSuggestions := make([]string, len(m.suggestions))
+		for i, suggestion := range m.suggestions {
+			safeSuggestions[i] = uitext.SafeTerminalText(suggestion)
+		}
+		m.suggestions = safeSuggestions
+	}
+
 	boxW, _ := m.BoxSize(screenWidth, screenHeight)
 	innerW := boxW - 2
 
-	bg := lipgloss.Color("#1e1e2e")
-	fg := lipgloss.Color("#cdd6f4")
-	subtle := lipgloss.Color("#a6adc8")
-	accent := lipgloss.Color("#89b4fa")
-	highlight := lipgloss.Color("#f9e2af")
-
-	bgStyle := lipgloss.NewStyle().Background(bg).Foreground(fg)
-	dimStyle := lipgloss.NewStyle().Background(bg).Foreground(subtle)
-	inputStyle := lipgloss.NewStyle().Background(bg).Foreground(highlight)
-	progressStyle := lipgloss.NewStyle().Background(bg).Foreground(lipgloss.Color("#a6e3a1"))
-	keyStyle := lipgloss.NewStyle().Background(bg).Foreground(accent).Bold(true)
+	styles := th.OverlayStyles()
+	bgStyle := styles.Base
+	dimStyle := styles.Dim
+	inputStyle := styles.Input
+	progressStyle := styles.Success
+	keyStyle := styles.Prompt
 
 	var contentLines []string
 
@@ -427,7 +439,7 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 		visStartByte := len(strings.Join(clusters[:visStart], ""))
 		visEndByte := len(strings.Join(clusters[:visEnd], ""))
 
-		cursorStyle := lipgloss.NewStyle().Background(highlight).Foreground(bg)
+		cursorStyle := styles.InputCursor
 		before := shown[visStartByte:shownPos]
 		after := ""
 		cursorCh := " "
@@ -556,10 +568,7 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 			footer += dimStyle.Render("  ") +
 				keyStyle.Render("Ctrl+C") + dimStyle.Render(":Copy")
 			if !m.copiedAt.IsZero() && time.Since(m.copiedAt) < copyFlashDuration {
-				copiedStyle := lipgloss.NewStyle().
-					Background(bg).
-					Foreground(lipgloss.Color("#a6e3a1")).
-					Bold(true)
+				copiedStyle := styles.Success.Bold(true)
 				footer += dimStyle.Render("  ") + copiedStyle.Render("✓ Copied")
 			}
 		}
@@ -579,8 +588,24 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 	}
 
 	boxW2, boxH := m.BoxSize(screenWidth, screenHeight)
-	return overlay.RenderBox(m.title, contentLines, footer, boxW2, boxH,
-		accent, bg, highlight)
+	return overlay.RenderBox(m.title, contentLines, footer, boxW2, boxH, styles)
+}
+
+func safeInputForRender(input string, inputPos int) (string, int) {
+	if inputPos < 0 {
+		inputPos = 0
+	} else if inputPos > len(input) {
+		inputPos = len(input)
+	}
+	for inputPos > 0 && inputPos < len(input) && !utf8.RuneStart(input[inputPos]) {
+		inputPos--
+	}
+	display := uitext.SafeTerminalText(input)
+	displayPos := len(uitext.SafeTerminalText(input[:inputPos]))
+	if displayPos > len(display) {
+		displayPos = len(display)
+	}
+	return display, displayPos
 }
 
 func renderBar(frac float64, width int, fill, empty lipgloss.Style) string {

@@ -17,11 +17,12 @@ type Item struct {
 	Key    string // display label, e.g. "F5"
 	Label  string // action label, e.g. "Copy"
 	RawKey string // actual key string for matching clicks, e.g. "f5"
+	Pinned bool   // fixed-width trailing menu item, independent of F-key slots
 }
 
 // DefaultItems returns the default menu bar items.
 func DefaultItems(cfg config.Config) []Item {
-	return []Item{
+	items := []Item{
 		itemFromCfg(cfg.Keys.Help, "Help"),
 		itemFromCfg(cfg.Keys.Bookmarks, "Bookm"),
 		itemFromCfg(cfg.Keys.View, "View"),
@@ -33,6 +34,9 @@ func DefaultItems(cfg config.Config) []Item {
 		itemFromCfg(cfg.Keys.FuzzyFind, "FZF"),
 		itemFromCfg(cfg.Keys.Quit, "Quit"),
 	}
+	settings := itemFromCfg(cfg.Keys.Settings, "Settings")
+	settings.Pinned = true
+	return append(items, settings)
 }
 
 // ShiftItems returns menu bar items for the Shift+F1..F10 state.
@@ -76,7 +80,9 @@ func ShiftItems(cfg config.Config) []Item {
 			}
 		}
 	}
-	return items
+	settings := itemFromCfg(cfg.Keys.Settings, "Settings")
+	settings.Pinned = true
+	return append(items, settings)
 }
 
 // shiftFKeyPos returns the 0-based menu position for a shift F-key string,
@@ -137,19 +143,27 @@ func HandleClick(x, width int, items []Item) string {
 	if width <= 0 {
 		return ""
 	}
-	colWidth := width / n
-	if colWidth == 0 {
+	widths := itemWidths(width, items)
+	if width < n && pinnedIndex(items) < 0 {
 		idx := x
 		if idx >= n {
 			idx = n - 1
 		}
 		return items[idx].RawKey
 	}
-	idx := x / colWidth
-	if idx >= n {
-		idx = n - 1
+	position := 0
+	for i, itemWidth := range widths {
+		if itemWidth > 0 && x >= position && x < position+itemWidth {
+			return items[i].RawKey
+		}
+		position += itemWidth
 	}
-	return items[idx].RawKey
+	for i := n - 1; i >= 0; i-- {
+		if widths[i] > 0 {
+			return items[i].RawKey
+		}
+	}
+	return ""
 }
 
 // View renders the F-key hints bar at the bottom, evenly spaced across width.
@@ -159,26 +173,78 @@ func View(th theme.Theme, width int, items []Item) string {
 		return th.MenuBar.Render(strings.Repeat(" ", width))
 	}
 
-	colWidth := width / n
+	widths := itemWidths(width, items)
 
 	var b strings.Builder
 	for i, itm := range items {
-		w := colWidth
-		if i == n-1 {
-			w = width - colWidth*(n-1)
+		w := widths[i]
+		if w <= 0 {
+			continue
 		}
 
-		keyStr := th.FKeyHint.Render(itm.Key)
-		keyWidth := lipgloss.Width(keyStr)
-		labelWidth := w - keyWidth
-		if labelWidth < 0 {
-			labelWidth = 0
+		keyWidth := lipgloss.Width(itm.Key)
+		if keyWidth > w {
+			keyWidth = w
 		}
-		labelStr := th.StatusBar.Render(overlay.PadOrTrunc(itm.Label, labelWidth))
+		keyStr := th.FKeyHint.Render(overlay.PadOrTrunc(itm.Key, keyWidth))
+		labelWidth := w - keyWidth
+		labelStr := th.FKeyLabel.Render(overlay.PadOrTrunc(itm.Label, labelWidth))
 
 		b.WriteString(keyStr)
 		b.WriteString(labelStr)
 	}
 
 	return b.String()
+}
+
+const pinnedMenuWidth = 14
+
+func pinnedIndex(items []Item) int {
+	for i := len(items) - 1; i >= 0; i-- {
+		if items[i].Pinned {
+			return i
+		}
+	}
+	return -1
+}
+
+func itemWidths(width int, items []Item) []int {
+	widths := make([]int, len(items))
+	if width <= 0 || len(items) == 0 {
+		return widths
+	}
+
+	pinned := pinnedIndex(items)
+	regularCount := len(items)
+	regularWidth := width
+	if pinned >= 0 {
+		regularCount--
+		if regularCount > 0 && width >= pinnedMenuWidth+regularCount*3 {
+			regularWidth = width - pinnedMenuWidth
+			widths[pinned] = pinnedMenuWidth
+		}
+	}
+	if regularCount <= 0 {
+		return widths
+	}
+
+	colWidth := regularWidth / regularCount
+	if colWidth == 0 {
+		for i := 0; i < regularCount && i < regularWidth; i++ {
+			widths[i] = 1
+		}
+		return widths
+	}
+
+	for i := 0; i < len(items); i++ {
+		if i == pinned {
+			continue
+		}
+		w := colWidth
+		if i == regularCount-1 {
+			w = regularWidth - colWidth*(regularCount-1)
+		}
+		widths[i] = w
+	}
+	return widths
 }

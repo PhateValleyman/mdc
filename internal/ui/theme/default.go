@@ -13,6 +13,20 @@ var (
 	colorMagenta = lipgloss.Color("5")
 )
 
+func defaultOverlayPalette() OverlayPalette {
+	return OverlayPalette{
+		Background: colorBlue,
+		Foreground: colorWhite,
+		Subtle:     colorCyan,
+		Accent:     colorCyan,
+		Highlight:  colorYellow,
+		CursorBG:   colorCyan,
+		Success:    colorGreen,
+		Danger:     lipgloss.Color("9"),
+		Border:     colorCyan,
+	}
+}
+
 // Default returns the classic MC-like theme.
 func Default() Theme {
 	return Theme{
@@ -76,6 +90,8 @@ func Default() Theme {
 		FKeyLabel: lipgloss.NewStyle().
 			Foreground(colorBlack).
 			Background(colorCyan),
+
+		Overlay: defaultOverlayPalette(),
 
 		CmdLine: lipgloss.NewStyle().
 			Foreground(colorWhite).

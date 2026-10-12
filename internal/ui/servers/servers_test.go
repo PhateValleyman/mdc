@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/kooler/MiddayCommander/internal/remote"
+	uitext "github.com/kooler/MiddayCommander/internal/ui/text"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 )
 
@@ -237,5 +238,64 @@ func TestEditPrefillsAndReplaces(t *testing.T) {
 	}
 	if len(store.Servers) != 1 {
 		t.Errorf("want one server, not a duplicate: %d", len(store.Servers))
+	}
+}
+
+func TestServerLabelsAreSanitizedOnlyForRender(t *testing.T) {
+	const hostileName = "p\u202e"
+	const hostileHost = "h\x1b]x\x07"
+	const hostileDir = "/\u202d"
+	server := remote.Server{Name: hostileName, Host: hostileHost, User: "deploy", Dir: hostileDir}
+	store := newStore(t, server)
+	m := New(store, 80, 24)
+
+	view := m.View(theme.Default(), 80, 24)
+	want := uitext.SafeTerminalText(hostileName + "  ssh://deploy@" + hostileHost + " " + hostileDir)
+	if !strings.Contains(view, want) {
+		t.Fatalf("server view should contain sanitized details %q: %q", want, view)
+	}
+	if strings.Contains(view, hostileName) || strings.Contains(view, hostileHost) || strings.Contains(view, hostileDir) {
+		t.Fatalf("server view exposed raw details: %q", view)
+	}
+	got := m.items[0]
+	if got.Name != hostileName || got.Host != hostileHost || got.Dir != hostileDir {
+		t.Fatalf("rendering changed the saved server: %#v", got)
+	}
+}
+
+func TestSavedServerEditFormSanitizesFieldsOnlyForRender(t *testing.T) {
+	const hostileName = "n\x1b]x\x07\u202e"
+	const hostileHost = "h\x1b]x\x07"
+	const hostileDir = "/d\u202d"
+	store := newStore(t, remote.Server{Name: hostileName, Host: hostileHost, Dir: hostileDir})
+	m := New(store, 120, 24)
+	m.startEdit()
+
+	view := m.View(theme.Default(), 120, 24)
+	for _, raw := range []string{hostileName, hostileHost, hostileDir} {
+		if strings.Contains(view, raw) {
+			t.Errorf("edit form exposed raw saved value %q: %q", raw, view)
+		}
+		if safe := uitext.SafeTerminalText(raw); !strings.Contains(view, safe) {
+			t.Errorf("edit form omitted sanitized saved value %q: %q", safe, view)
+		}
+	}
+	if m.values[fieldName] != hostileName || m.values[fieldHost] != hostileHost || m.values[fieldDir] != hostileDir {
+		t.Fatalf("rendering changed saved form values: %#v", m.values)
+	}
+}
+
+func TestServerFilterSanitizesOnlyForRender(t *testing.T) {
+	const hostileFilter = "host\u202e"
+	m := New(newStore(t), 80, 24)
+	m.mode = modeFilter
+	m.filter = hostileFilter
+
+	view := m.View(theme.Default(), 80, 24)
+	if !strings.Contains(view, uitext.SafeTerminalText(hostileFilter)) || strings.Contains(view, hostileFilter) {
+		t.Fatalf("server filter was not safely rendered: %q", view)
+	}
+	if m.filter != hostileFilter {
+		t.Fatalf("rendering changed server filter: %q", m.filter)
 	}
 }

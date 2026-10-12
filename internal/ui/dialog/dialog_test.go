@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 
+	uitext "github.com/kooler/MiddayCommander/internal/ui/text"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 )
 
@@ -316,6 +317,61 @@ func TestErrorDialogSanitizesTerminalControlText(t *testing.T) {
 	}
 	if !strings.Contains(out, "remote�]52;c;payload�") {
 		t.Fatal("sanitized error text is missing")
+	}
+}
+
+func TestConfirmDialogSanitizesDynamicTextOnlyForRender(t *testing.T) {
+	const hostile = "x\x1b]52;c;payload\a\u202e"
+	m := NewConfirm(hostile, hostile, "delete")
+	out := m.View(theme.Theme{}, 120, 40)
+	assertSafeDialogText(t, out, hostile)
+	if m.title != hostile || m.message != hostile {
+		t.Fatalf("rendering changed confirmation values: title=%q message=%q", m.title, m.message)
+	}
+}
+
+func TestInputDialogSanitizesDynamicTextAndSuggestionsOnlyForRender(t *testing.T) {
+	const hostile = "x\x1b]52;c;payload\a\u202e"
+	m := NewInput(hostile, hostile, hostile, "goto")
+	m.width = 100
+	m.suggestions = []string{hostile}
+	out := m.View(theme.Theme{}, 120, 40)
+	assertSafeDialogText(t, out, hostile)
+	if m.title != hostile || m.message != hostile || m.input != hostile || m.suggestions[0] != hostile {
+		t.Fatalf("rendering changed input values: %#v", m)
+	}
+}
+
+func TestProgressDialogSanitizesCurrentOnlyForRender(t *testing.T) {
+	const hostile = "file\x1b]52;c;payload\a\u202e"
+	tests := []struct {
+		name string
+		set  func(*Model)
+	}{
+		{"connecting target", func(m *Model) { m.SetConnecting(hostile) }},
+		{"current file", func(m *Model) { m.SetProgress(1, 0, 100, 0, 100, 0, hostile) }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := NewProgress("Copy", "copy")
+			tt.set(&m)
+			out := m.View(theme.Theme{}, 120, 40)
+			assertSafeDialogText(t, out, hostile)
+			if m.current != hostile {
+				t.Fatalf("rendering changed current operation value: %q", m.current)
+			}
+		})
+	}
+}
+
+func assertSafeDialogText(t *testing.T, out, raw string) {
+	t.Helper()
+	safe := uitext.SafeTerminalText(raw)
+	if !strings.Contains(out, safe) {
+		t.Fatalf("rendered dialog should contain sanitized text %q: %q", safe, out)
+	}
+	if strings.Contains(out, raw) {
+		t.Fatalf("rendered dialog exposed raw dynamic text %q: %q", raw, out)
 	}
 }
 

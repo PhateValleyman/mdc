@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -227,22 +228,19 @@ func (m Model) outputHeight() int {
 
 // View renders the command execution overlay.
 func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
+	displayInput, displayInputPos := safeInputForRender(m.input, m.inputPos)
 	boxW, boxH := m.BoxSize(screenWidth, screenHeight)
 	innerW := boxW - 2
 
-	bg := lipgloss.Color("#1e1e2e")
-	fg := lipgloss.Color("#cdd6f4")
-	subtle := lipgloss.Color("#a6adc8")
-	accent := lipgloss.Color("#89b4fa")
-
-	bgStyle := lipgloss.NewStyle().Background(bg).Foreground(fg)
-	promptStyle := lipgloss.NewStyle().Background(bg).Foreground(accent).Bold(true)
-	dimStyle := lipgloss.NewStyle().Background(bg).Foreground(subtle)
+	styles := th.OverlayStyles()
+	bgStyle := styles.Base
+	promptStyle := styles.Prompt
+	dimStyle := styles.Dim
 
 	var contentLines []string
 
 	// Directory line
-	dir := m.dir
+	dir := uitext.SafeTerminalText(m.dir)
 	if ansi.StringWidth(dir) > innerW-2 {
 		dir = overlay.TruncateLeftEllipsis(dir, innerW-2)
 	}
@@ -255,11 +253,11 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 
 	// Input line with cursor
 	var inputDisplay string
-	if m.inputPos < len(m.input) {
-		cluster, _ := uitext.FirstGraphemeCluster(m.input[m.inputPos:])
-		inputDisplay = m.input[:m.inputPos] + "█" + m.input[m.inputPos+len(cluster):]
+	if displayInputPos < len(displayInput) {
+		cluster, _ := uitext.FirstGraphemeCluster(displayInput[displayInputPos:])
+		inputDisplay = displayInput[:displayInputPos] + "█" + displayInput[displayInputPos+len(cluster):]
 	} else {
-		inputDisplay = m.input + "█"
+		inputDisplay = displayInput + "█"
 	}
 	inputLine := promptStyle.Render(" $ ") + bgStyle.Render(inputDisplay)
 	inputWidth := lipgloss.Width(inputLine)
@@ -291,7 +289,7 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 			end = len(m.outputLines)
 		}
 		for i := m.outputOffset; i < end; i++ {
-			line := " " + m.outputLines[i]
+			line := " " + uitext.SafeTerminalText(m.outputLines[i])
 			if ansi.StringWidth(line) > innerW {
 				line = ansi.Truncate(line, innerW, "")
 			}
@@ -307,7 +305,11 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 		if oh < 1 {
 			oh = 1
 		}
-		suggestionLines := formatSuggestions(m.suggestions, innerW, oh)
+		displaySuggestions := make([]string, len(m.suggestions))
+		for i, suggestion := range m.suggestions {
+			displaySuggestions[i] = uitext.SafeTerminalText(suggestion)
+		}
+		suggestionLines := formatSuggestions(displaySuggestions, innerW, oh)
 		for _, line := range suggestionLines {
 			contentLines = append(contentLines, dimStyle.Render(line))
 		}
@@ -321,7 +323,7 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 	}
 
 	// Footer
-	footerKeyStyle := lipgloss.NewStyle().Background(bg).Foreground(accent).Bold(true)
+	footerKeyStyle := styles.Prompt
 	footer := footerKeyStyle.Render(" Enter") + dimStyle.Render(":Run  ") +
 		footerKeyStyle.Render("Esc") + dimStyle.Render(":Close  ") +
 		footerKeyStyle.Render("↑↓") + dimStyle.Render(":Scroll  ") +
@@ -343,8 +345,24 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 		footer += dimStyle.Render(strings.Repeat(" ", innerW-footerWidth))
 	}
 
-	return overlay.RenderBox("Run Command", contentLines, footer, boxW, boxH,
-		accent, bg, accent)
+	return overlay.RenderBox("Run Command", contentLines, footer, boxW, boxH, styles)
+}
+
+func safeInputForRender(input string, inputPos int) (string, int) {
+	if inputPos < 0 {
+		inputPos = 0
+	} else if inputPos > len(input) {
+		inputPos = len(input)
+	}
+	for inputPos > 0 && inputPos < len(input) && !utf8.RuneStart(input[inputPos]) {
+		inputPos--
+	}
+	display := uitext.SafeTerminalText(input)
+	displayPos := len(uitext.SafeTerminalText(input[:inputPos]))
+	if displayPos > len(display) {
+		displayPos = len(display)
+	}
+	return display, displayPos
 }
 
 func runCommandCmd(dir, command string) tea.Cmd {

@@ -1,9 +1,12 @@
 package overlay
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/kooler/MiddayCommander/internal/ui/theme"
 )
 
 // TestPadOrTrunc checks padding and right-truncation to exact cell widths.
@@ -143,5 +146,54 @@ func TestTruncateLeftEllipsisNarrowWideTail(t *testing.T) {
 				t.Errorf("TruncateLeftEllipsis(%q, %d) width = %d, want %d", tt.s, tt.width, w, tt.width)
 			}
 		})
+	}
+}
+
+func TestRenderBoxClipsContentAndFooterToWidth(t *testing.T) {
+	styles := theme.Default().OverlayStyles()
+	view := RenderBox(
+		"A title longer than the box",
+		[]string{styles.Base.Render("日本語のファイル名 is too long"), styles.Selected.Render("another long row")},
+		styles.Prompt.Render("Enter:確認  Esc:閉じる  extra help"),
+		14,
+		5,
+		styles,
+	)
+	lines := strings.Split(view, "\n")
+	if len(lines) != 5 {
+		t.Fatalf("rendered %d rows, want height 5: %q", len(lines), view)
+	}
+	for row, line := range lines {
+		if got := ansi.StringWidth(line); got != 14 {
+			t.Errorf("row %d width = %d, want 14: %q", row, got, line)
+		}
+	}
+}
+
+func TestRenderBoxFillsContentAndFooterWithThemeBackground(t *testing.T) {
+	styles := theme.Default().OverlayStyles()
+	content := styles.Selected.Render("ok")
+	footer := styles.Prompt.Render("Esc:Close")
+	view := RenderBox("Settings", []string{content}, footer, 16, 4, styles)
+	lines := strings.Split(view, "\n")
+	contentFill := styles.Base.Render(strings.Repeat(" ", 12))
+	footerFill := styles.Base.Render(strings.Repeat(" ", 5))
+	if !strings.Contains(lines[1], content+contentFill) {
+		t.Errorf("short content row did not receive the theme background fill: %q", lines[1])
+	}
+	if !strings.Contains(lines[2], footer+footerFill) {
+		t.Errorf("short footer did not receive the theme background fill: %q", lines[2])
+	}
+}
+
+func TestRenderBoxHandlesTinyDimensions(t *testing.T) {
+	styles := theme.Default().OverlayStyles()
+	for _, dimensions := range [][2]int{{0, 0}, {1, 1}, {2, 1}, {2, 2}} {
+		view := RenderBox("Settings", []string{"content"}, "footer", dimensions[0], dimensions[1], styles)
+		for row, line := range strings.Split(view, "\n") {
+			if got := ansi.StringWidth(line); got > dimensions[0] {
+				t.Errorf("dimensions %v row %d returned width %d: %q", dimensions, row, got, line)
+			}
+		}
 	}
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/kooler/MiddayCommander/internal/remote"
 	"github.com/kooler/MiddayCommander/internal/ui/overlay"
+	uitext "github.com/kooler/MiddayCommander/internal/ui/text"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 )
 
@@ -354,25 +355,18 @@ func (m *Model) clampOffset() {
 	}
 }
 
-func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
+func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 	boxW, boxH := m.BoxSize(screenWidth, screenHeight)
 	innerW := boxW - 2
-
-	bg := lipgloss.Color("#1e1e2e")
-	fg := lipgloss.Color("#cdd6f4")
-	subtle := lipgloss.Color("#a6adc8")
-	accent := lipgloss.Color("#89b4fa")
-	highlight := lipgloss.Color("#f9e2af")
-	danger := lipgloss.Color("#f38ba8")
-	cursorBg := lipgloss.Color("#45475a")
+	palette := th.OverlayStyles()
 
 	st := styles{
-		base:   lipgloss.NewStyle().Background(bg).Foreground(fg),
-		cursor: lipgloss.NewStyle().Background(cursorBg).Foreground(fg),
-		dim:    lipgloss.NewStyle().Background(bg).Foreground(subtle),
-		num:    lipgloss.NewStyle().Background(bg).Foreground(highlight),
-		key:    lipgloss.NewStyle().Background(bg).Foreground(accent).Bold(true),
-		err:    lipgloss.NewStyle().Background(bg).Foreground(danger),
+		base:   palette.Base,
+		cursor: palette.Selected,
+		dim:    palette.Dim,
+		num:    palette.Highlight,
+		key:    palette.Prompt,
+		err:    palette.Danger,
 		innerW: innerW,
 	}
 
@@ -399,7 +393,7 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 		)
 	}
 
-	return overlay.RenderBox(title, contentLines, footer, boxW, boxH, accent, bg, highlight)
+	return overlay.RenderBox(title, contentLines, footer, boxW, boxH, palette)
 }
 
 func (m Model) formLines(st styles) []string {
@@ -414,7 +408,7 @@ func (m Model) formLines(st styles) []string {
 
 	for i := 0; i < fieldCount; i++ {
 		label := pad(fieldLabels[i]+":", labelW+2)
-		value := m.values[i]
+		value := uitext.SafeTerminalText(m.values[i])
 
 		var row string
 		if i == m.focused {
@@ -443,7 +437,8 @@ func (m Model) listLines(st styles) []string {
 
 	rh := m.resultHeight()
 	if m.mode == modeFilter {
-		lines = append(lines, st.key.Render(" Filter: ")+st.base.Render(pad(m.filter+"_", st.innerW-9)))
+		filter := uitext.SafeTerminalText(m.filter)
+		lines = append(lines, st.key.Render(" Filter: ")+st.base.Render(pad(filter+"_", st.innerW-9)))
 		rh--
 	}
 
@@ -471,6 +466,7 @@ func (m Model) listLines(st styles) []string {
 		} else {
 			text = detail
 		}
+		text = uitext.SafeTerminalText(text)
 		text = truncate(text, st.innerW-len(prefix))
 
 		if i == m.cursor {

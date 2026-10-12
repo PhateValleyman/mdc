@@ -16,6 +16,7 @@ type ThemeFile struct {
 	Panel   panelTOML         `toml:"panel"`
 	Status  sectionTOML       `toml:"statusbar"`
 	Menu    menuTOML          `toml:"menubar"`
+	Overlay overlayTOML       `toml:"overlay"`
 }
 
 type panelTOML struct {
@@ -62,6 +63,18 @@ type menuTOML struct {
 	FKeyHintBG  string `toml:"fkey_hint_bg"`
 	FKeyLabelFG string `toml:"fkey_label_fg"`
 	FKeyLabelBG string `toml:"fkey_label_bg"`
+}
+
+type overlayTOML struct {
+	BG        string `toml:"bg"`
+	FG        string `toml:"fg"`
+	Subtle    string `toml:"subtle"`
+	Accent    string `toml:"accent"`
+	Highlight string `toml:"highlight"`
+	CursorBG  string `toml:"cursor_bg"`
+	Success   string `toml:"success"`
+	Danger    string `toml:"danger"`
+	Border    string `toml:"border"`
 }
 
 // Theme source constants.
@@ -256,10 +269,30 @@ func buildTheme(tf ThemeFile) Theme {
 		FKeyHint:  orDefault(style(tf.Menu.FKeyHintFG, tf.Menu.FKeyHintBG), def.FKeyHint),
 		FKeyLabel: orDefault(style(tf.Menu.FKeyLabelFG, tf.Menu.FKeyLabelBG), def.FKeyLabel),
 
+		Overlay: OverlayPalette{
+			Background: overlayColor(tf.Overlay.BG, tf.Panel.File.NormalBG, "", def.Overlay.Background, resolve),
+			Foreground: overlayColor(tf.Overlay.FG, tf.Panel.File.NormalFG, "", def.Overlay.Foreground, resolve),
+			Subtle:     overlayColor(tf.Overlay.Subtle, tf.Menu.FKeyHintFG, tf.Panel.BorderFG, def.Overlay.Subtle, resolve),
+			Accent:     overlayColor(tf.Overlay.Accent, tf.Menu.FKeyHintFG, tf.Panel.BorderActiveFG, def.Overlay.Accent, resolve),
+			Highlight:  overlayColor(tf.Overlay.Highlight, tf.Panel.File.SelectedFG, tf.Panel.File.CursorDirBG, def.Overlay.Highlight, resolve),
+			CursorBG:   overlayColor(tf.Overlay.CursorBG, tf.Panel.File.CursorBG, "", def.Overlay.CursorBG, resolve),
+			Success:    overlayColor(tf.Overlay.Success, tf.Panel.File.ExecFG, tf.Palette["green"], def.Overlay.Success, resolve),
+			Danger:     overlayColor(tf.Overlay.Danger, tf.Palette["bright_red"], tf.Palette["red"], def.Overlay.Danger, resolve),
+			Border:     overlayColor(tf.Overlay.Border, tf.Panel.BorderFG, tf.Menu.FKeyHintFG, def.Overlay.Border, resolve),
+		},
 		CmdLine: def.CmdLine,
 	}
 
 	return th
+}
+
+func overlayColor(explicit, primary, secondary string, fallback lipgloss.Color, resolve func(string) lipgloss.Color) lipgloss.Color {
+	for _, value := range []string{explicit, primary, secondary} {
+		if value != "" {
+			return resolve(value)
+		}
+	}
+	return fallback
 }
 
 // orDefault returns s if it has any foreground or background set, otherwise returns def.

@@ -10,6 +10,7 @@ import (
 
 	"github.com/kooler/MiddayCommander/internal/platform"
 	"github.com/kooler/MiddayCommander/internal/ui/overlay"
+	uitext "github.com/kooler/MiddayCommander/internal/ui/text"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 )
 
@@ -131,20 +132,13 @@ func (m Model) BoxSize(screenWidth, screenHeight int) (int, int) {
 const helpText = "Select a path and press Enter to copy it to the clipboard"
 
 // View renders the overlay as a floating box.
-func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
+func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 	boxW, boxH := m.BoxSize(screenWidth, screenHeight)
 	innerW := boxW - 2
-
-	bg := lipgloss.Color("#1e1e2e")
-	fg := lipgloss.Color("#cdd6f4")
-	subtle := lipgloss.Color("#a6adc8")
-	accent := lipgloss.Color("#89b4fa")
-	highlight := lipgloss.Color("#f9e2af")
-	cursorBg := lipgloss.Color("#45475a")
-
-	bgStyle := lipgloss.NewStyle().Background(bg).Foreground(fg)
-	cursorStyle := lipgloss.NewStyle().Background(cursorBg).Foreground(fg)
-	dimStyle := lipgloss.NewStyle().Background(bg).Foreground(subtle)
+	styles := th.OverlayStyles()
+	bgStyle := styles.Base
+	cursorStyle := styles.Selected
+	dimStyle := styles.Dim
 
 	var contentLines []string
 	contentLines = append(contentLines, dimStyle.Render(overlay.PadOrTrunc(" "+helpText, innerW)))
@@ -155,7 +149,7 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 		if i == m.cursor {
 			prefix = "> "
 		}
-		display := p
+		display := uitext.SafeTerminalText(p)
 		if ansi.StringWidth(display) > innerW-len(prefix) {
 			display = overlay.TruncateLeftEllipsis(display, innerW-len(prefix))
 		}
@@ -167,7 +161,7 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 		}
 	}
 
-	keyStyle := lipgloss.NewStyle().Background(bg).Foreground(accent).Bold(true)
+	keyStyle := styles.Prompt
 	sepStyle := dimStyle
 	footer := keyStyle.Render(" ↑/↓") + sepStyle.Render(":Navigate") +
 		sepStyle.Render("  ") +
@@ -178,8 +172,7 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 		footer += dimStyle.Render(strings.Repeat(" ", innerW-fw))
 	}
 
-	return overlay.RenderBox("Copy Path", contentLines, footer, boxW, boxH,
-		accent, bg, highlight)
+	return overlay.RenderBox("Copy Path", contentLines, footer, boxW, boxH, styles)
 }
 
 func min(a, b int) int {

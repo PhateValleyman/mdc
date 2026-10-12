@@ -122,6 +122,7 @@ func (m Model) rightEntries() []entry {
 		{"ADB devices", fmtKeys(k.ADB)},
 		{"Quick search", fmtKeys(k.QuickSearch)},
 		{"Theme picker", fmtKeys(k.ThemePicker)},
+		{"Settings", fmtKeys(k.Settings)},
 		{"Run command", fmtKeys(k.CmdExec)},
 		{"Terminal", fmtKeys(k.Terminal)},
 		{"Help", fmtKeys(k.Help)},
@@ -201,16 +202,11 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 	boxW, boxH := m.BoxSize(screenWidth, screenHeight)
 	innerW := boxW - 2
 
-	bg := lipgloss.Color("#1e1e2e")
-	fg := lipgloss.Color("#cdd6f4")
-	subtle := lipgloss.Color("#a6adc8")
-	accent := lipgloss.Color("#89b4fa")
-	heading := lipgloss.Color("#f9e2af")
-
-	bgStyle := lipgloss.NewStyle().Background(bg).Foreground(fg)
-	headStyle := lipgloss.NewStyle().Background(bg).Foreground(heading).Bold(true)
-	keyStyle := lipgloss.NewStyle().Background(bg).Foreground(accent)
-	dimStyle := lipgloss.NewStyle().Background(bg).Foreground(subtle)
+	styles := th.OverlayStyles()
+	bgStyle := styles.Base
+	headStyle := styles.Highlight
+	keyStyle := styles.Prompt
+	dimStyle := styles.Dim
 
 	var contentLines []string
 
@@ -269,7 +265,7 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 	}
 
 	// Footer
-	footerKeyStyle := lipgloss.NewStyle().Background(bg).Foreground(accent).Bold(true)
+	footerKeyStyle := styles.Prompt
 	footer := footerKeyStyle.Render(" Esc") + dimStyle.Render(":Close")
 	if scrollable {
 		footer += dimStyle.Render("  ") +
@@ -280,6 +276,5 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 		footer += dimStyle.Render(strings.Repeat(" ", innerW-footerWidth))
 	}
 
-	return overlay.RenderBox("Help", contentLines, footer, boxW, boxH,
-		accent, bg, accent)
+	return overlay.RenderBox("Help", contentLines, footer, boxW, boxH, styles)
 }

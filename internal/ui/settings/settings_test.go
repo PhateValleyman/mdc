@@ -36,6 +36,22 @@ func TestShowHiddenRowTogglesAndReportsValue(t *testing.T) {
 	}
 }
 
+func TestRemoteSettingsRowsOpenExistingManagers(t *testing.T) {
+	for _, tc := range []struct {
+		index int
+		want  any
+	}{{2, ServersRequestedMsg{}}, {3, RcloneRequestedMsg{}}} {
+		m := New("gotar", true, 80, 24)
+		for i := 0; i < tc.index; i++ {
+			m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+		}
+		_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		if cmd == nil || cmd() != tc.want {
+			t.Errorf("row %d should request %T", tc.index, tc.want)
+		}
+	}
+}
+
 func TestDismissAndThemedRender(t *testing.T) {
 	m := New("mc-classic", false, 80, 24)
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
@@ -70,12 +86,39 @@ func TestThemeNameIsSanitizedOnlyForRender(t *testing.T) {
 }
 
 func TestViewFitsNarrowTerminalWidths(t *testing.T) {
-	for _, width := range []int{18, 24, 32, 40, 52, 53, 54, 80} {
-		m := New("gotar", true, width, 24)
-		boxWidth, _ := m.BoxSize(width, 24)
-		for row, line := range strings.Split(m.View(theme.Default(), width, 24), "\n") {
+	for _, size := range [][2]int{{12, 8}, {18, 12}, {24, 24}, {32, 24}, {40, 24}, {52, 24}, {53, 24}, {54, 24}, {80, 24}} {
+		width, height := size[0], size[1]
+		m := New("gotar", true, width, height)
+		boxWidth, boxHeight := m.BoxSize(width, height)
+		view := m.View(theme.Default(), width, height)
+		if got := strings.Count(view, "╞"); got != 4 {
+			t.Errorf("width %d: got %d framed choices, want 4", width, got)
+		}
+		if got := len(strings.Split(view, "\n")); got > boxHeight {
+			t.Errorf("size %dx%d produced %d rows, box height %d", width, height, got, boxHeight)
+		}
+		for row, line := range strings.Split(view, "\n") {
 			if got := ansi.StringWidth(line); got > boxWidth {
 				t.Errorf("width %d row %d = %d cells, box width %d", width, row, got, boxWidth)
+			}
+		}
+	}
+}
+
+func TestShortTerminalHeightsKeepEverySettingsRowReachable(t *testing.T) {
+	for _, height := range []int{5, 6, 7, 8} {
+		m := New("gotar", true, 40, height)
+		visible, _ := m.visibleRows()
+		for index := 0; index < 4; index++ {
+			if m.cursor < m.offset || m.cursor >= m.offset+visible {
+				t.Fatalf("height %d cursor %d is outside viewport offset=%d visible=%d", height, m.cursor, m.offset, visible)
+			}
+			view := m.View(theme.Default(), 40, height)
+			if got := strings.Count(view, "╞"); got != visible {
+				t.Fatalf("height %d cursor %d shows %d framed rows, want %d", height, index, got, visible)
+			}
+			if index < 3 {
+				m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
 			}
 		}
 	}

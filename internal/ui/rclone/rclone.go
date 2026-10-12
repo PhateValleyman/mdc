@@ -256,9 +256,10 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 			label := uitext.SafeTerminalText(m.items[i])
 			text := prefix + label
 			if i == m.cursor {
-				lines = append(lines, selected.Render(pad(text, innerW)))
+				lines = append(lines, overlay.FrameRow(selected.Render(pad(text, innerW-2)), innerW, styles.Highlight))
 			} else {
-				lines = append(lines, key.Render(prefix)+base.Render(pad(label, innerW-len(prefix))))
+				row := key.Render(prefix) + base.Render(pad(label, innerW-2-len(prefix)))
+				lines = append(lines, overlay.FrameRow(row, innerW, styles.Border))
 			}
 		}
 	}

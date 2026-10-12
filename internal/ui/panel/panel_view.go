@@ -32,6 +32,10 @@ func (m Model) View(th theme.Theme) string {
 	if innerWidth < 0 {
 		innerWidth = 0
 	}
+	rowWidth := innerWidth - 2
+	if rowWidth < 0 {
+		rowWidth = 0
+	}
 
 	header := uitext.SafeTerminalText(m.Location().Display())
 	if ansi.StringWidth(header) > innerWidth-4 {
@@ -51,7 +55,8 @@ func (m Model) View(th theme.Theme) string {
 	}
 
 	for i := m.offset; i < end; i++ {
-		row := m.renderRow(i, innerWidth, th)
+		row := m.renderRow(i, rowWidth, th)
+		row = overlay.FrameRow(row, innerWidth, borderStyle)
 		rows = append(rows, vbar+row+vbar)
 	}
 

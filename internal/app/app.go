@@ -303,6 +303,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case settingsui.ThemeRequestedMsg:
 		return m.startThemePickerFromSettings()
 
+	case settingsui.ServersRequestedMsg:
+		m.settings = nil
+		return m.startServers()
+
+	case settingsui.RcloneRequestedMsg:
+		m.settings = nil
+		return m.startRcloneRemotes()
+
 	case settingsui.ShowHiddenChangedMsg:
 		if m.leftPanel.ShowHidden() != msg.Show {
 			m.leftPanel.ToggleHidden()
@@ -642,13 +650,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.shiftHeld = msg.Shift
 
 		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
-			// Click on menu bar (last row)
-			if msg.Y == m.height-1 {
-				items := m.menuItems
-				if m.shiftHeld {
-					items = m.shiftMenuItems
-				}
-				raw := menubar.HandleClick(msg.X, m.width, items)
+			items := m.menuItems
+			if m.shiftHeld {
+				items = m.shiftMenuItems
+			}
+			menuHeight := menubar.Height(m.width, items)
+			menuTop := m.height - menuHeight
+			// Route clicks within the bottom menu block; modal overlays take priority.
+			if msg.Y >= menuTop && msg.Y < m.height && !m.modalOverlayActive() {
+				raw := menubar.HandleClickAt(msg.X, msg.Y-menuTop, m.width, items)
 				if raw != "" {
 					return m.dispatchKey(raw)
 				}
@@ -1027,6 +1037,12 @@ func (m Model) statusBarView() string {
 	prefix := m.theme.FKeyHint.Render(overlay.PadOrTrunc(prefixText, prefixWidth))
 	body := m.theme.StatusBar.Render(overlay.PadOrTruncDots(details, bodyWidth))
 	return prefix + body
+}
+
+func (m Model) modalOverlayActive() bool {
+	return m.dialog != nil || m.fuzzy != nil || m.bookmarks != nil || m.servers != nil ||
+		m.adbPicker != nil || m.rclonePicker != nil || m.help != nil || m.themePicker != nil ||
+		m.settings != nil || m.cmdExec != nil || m.copyPath != nil || (m.quickview != nil && m.quickFocus)
 }
 
 // dispatchKey executes the action bound to a raw key string (used for menu bar clicks).
@@ -1527,7 +1543,8 @@ func (m *Model) toggleFocus() {
 }
 
 func (m *Model) recalcLayout() {
-	panelHeight := m.height - 3 // 2 for panel borders (top+bottom), 1 for fkey bar
+	menuHeight := menubar.Height(m.width, m.menuItems)
+	panelHeight := m.height - 2 - menuHeight // 2 for panel borders, plus menu rows
 	if m.height >= 6 {
 		panelHeight-- // reserve one row for the contextual status bar
 	}

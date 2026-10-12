@@ -238,7 +238,8 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 		}
 
 		display := uitext.SafeTerminalText(entry.Name)
-		maxNameW := innerW - 4 - ansi.StringWidth(tag) // 3-cell gutter + 1-col right margin
+		rowW := innerW - 2
+		maxNameW := rowW - 4 - ansi.StringWidth(tag) // 3-cell gutter + 1-col right margin
 		if ansi.StringWidth(display) > maxNameW {
 			display = overlay.PadOrTruncDots(display, maxNameW)
 		}
@@ -251,10 +252,10 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 				line = gutter + cursorStyle.Render(display)
 			}
 			lineW := lipgloss.Width(line)
-			if lineW < innerW {
-				line += cursorStyle.Render(strings.Repeat(" ", innerW-lineW))
+			if lineW < rowW {
+				line += cursorStyle.Render(strings.Repeat(" ", rowW-lineW))
 			}
-			contentLines = append(contentLines, line)
+			contentLines = append(contentLines, overlay.FrameRow(line, innerW, selectedFrameBorderStyle(styles)))
 		} else {
 			var line string
 			if tag != "" {
@@ -263,10 +264,10 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 				line = gutter + bgStyle.Render(display)
 			}
 			lineW := lipgloss.Width(line)
-			if lineW < innerW {
-				line += bgStyle.Render(strings.Repeat(" ", innerW-lineW))
+			if lineW < rowW {
+				line += bgStyle.Render(strings.Repeat(" ", rowW-lineW))
 			}
-			contentLines = append(contentLines, line)
+			contentLines = append(contentLines, overlay.FrameRow(line, innerW, styles.Border))
 		}
 	}
 
@@ -299,4 +300,9 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 	}
 
 	return overlay.RenderBox(title, contentLines, footer, boxW, boxH, styles)
+}
+
+func selectedFrameBorderStyle(styles theme.OverlayStyles) lipgloss.Style {
+	// Prompt is the semantic Accent role; Highlight remains the separate cursor/fill role.
+	return styles.Prompt
 }

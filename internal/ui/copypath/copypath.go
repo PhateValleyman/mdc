@@ -150,14 +150,14 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 			prefix = "> "
 		}
 		display := uitext.SafeTerminalText(p)
-		if ansi.StringWidth(display) > innerW-len(prefix) {
-			display = overlay.TruncateLeftEllipsis(display, innerW-len(prefix))
+		if ansi.StringWidth(display) > innerW-2-len(prefix) {
+			display = overlay.TruncateLeftEllipsis(display, innerW-2-len(prefix))
 		}
-		line := overlay.PadOrTrunc(prefix+display, innerW)
+		line := overlay.PadOrTrunc(prefix+display, innerW-2)
 		if i == m.cursor {
-			contentLines = append(contentLines, cursorStyle.Render(line))
+			contentLines = append(contentLines, overlay.FrameRow(cursorStyle.Render(line), innerW, styles.Highlight))
 		} else {
-			contentLines = append(contentLines, bgStyle.Render(line))
+			contentLines = append(contentLines, overlay.FrameRow(bgStyle.Render(line), innerW, styles.Border))
 		}
 	}
 

@@ -16,6 +16,12 @@ type DismissMsg struct{}
 // ThemeRequestedMsg asks the application to open the existing live theme picker.
 type ThemeRequestedMsg struct{}
 
+// ServersRequestedMsg opens the existing saved SSH server manager.
+type ServersRequestedMsg struct{}
+
+// RcloneRequestedMsg opens the existing rclone remote manager.
+type RcloneRequestedMsg struct{}
+
 // ShowHiddenChangedMsg reports the requested visibility for dot files.
 type ShowHiddenChangedMsg struct{ Show bool }
 
@@ -24,6 +30,7 @@ type Model struct {
 	themeName  string
 	showHidden bool
 	cursor     int
+	offset     int
 	width      int
 	height     int
 }
@@ -39,6 +46,7 @@ func New(themeName string, showHidden bool, width, height int) Model {
 // SetSize updates the overlay's latest terminal dimensions.
 func (m *Model) SetSize(width, height int) {
 	m.width, m.height = width, height
+	m.clampOffset()
 }
 
 // SetShowHidden updates the visible value after the application applies it.
@@ -60,18 +68,26 @@ func (m Model) Update(msg tea.KeyMsg) (Model, tea.Cmd) {
 	case "up", "k":
 		if m.cursor > 0 {
 			m.cursor--
+			m.clampOffset()
 		}
 	case "down", "j":
-		if m.cursor < 1 {
+		if m.cursor < 3 {
 			m.cursor++
+			m.clampOffset()
 		}
 	case "enter", " ":
-		if m.cursor == 0 {
+		switch m.cursor {
+		case 0:
 			return m, func() tea.Msg { return ThemeRequestedMsg{} }
+		case 1:
+			show := !m.showHidden
+			m.showHidden = show
+			return m, func() tea.Msg { return ShowHiddenChangedMsg{Show: show} }
+		case 2:
+			return m, func() tea.Msg { return ServersRequestedMsg{} }
+		case 3:
+			return m, func() tea.Msg { return RcloneRequestedMsg{} }
 		}
-		show := !m.showHidden
-		m.showHidden = show
-		return m, func() tea.Msg { return ShowHiddenChangedMsg{Show: show} }
 	}
 	return m, nil
 }
@@ -85,11 +101,37 @@ func (m Model) BoxSize(screenWidth, screenHeight int) (int, int) {
 	if w < 1 {
 		w = screenWidth
 	}
-	h := 8
+	h := 10
 	if h > screenHeight {
 		h = screenHeight
 	}
 	return w, h
+}
+
+func (m Model) visibleRows() (int, bool) {
+	_, boxH := m.BoxSize(m.width, m.height)
+	available := boxH - 3 // title, footer, and bottom border
+	showHint := available > 4
+	if showHint {
+		available--
+	}
+	if available < 1 {
+		available = 1
+	}
+	if available > 4 {
+		available = 4
+	}
+	return available, showHint
+}
+
+func (m *Model) clampOffset() {
+	visible, _ := m.visibleRows()
+	if m.cursor < m.offset {
+		m.offset = m.cursor
+	}
+	if m.cursor >= m.offset+visible {
+		m.offset = m.cursor - visible + 1
+	}
 }
 
 // View renders the settings overlay using the active theme's shared styles.
@@ -107,17 +149,25 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 		showValue = "On"
 	}
 	showLine := " Show hidden   [" + showValue + "]"
-	rows := []string{themeLine, showLine}
-	content := make([]string, 0, len(rows))
-	for i, row := range rows {
-		line := overlay.PadOrTrunc(row, innerW)
+	rows := []string{themeLine, showLine, " SSH / Servers", " rclone Remotes / Config"}
+	visible, showHint := m.visibleRows()
+	end := m.offset + visible
+	if end > len(rows) {
+		end = len(rows)
+	}
+	content := make([]string, 0, visible+1)
+	for i := m.offset; i < end; i++ {
+		row := rows[i]
+		line := overlay.PadOrTrunc(row, innerW-2)
 		if i == m.cursor {
-			content = append(content, styles.Selected.Render(line))
+			content = append(content, overlay.FrameRow(styles.Selected.Render(line), innerW, styles.Highlight))
 		} else {
-			content = append(content, styles.Base.Render(line))
+			content = append(content, overlay.FrameRow(styles.Base.Render(line), innerW, styles.Border))
 		}
 	}
-	content = append(content, styles.Dim.Render(overlay.PadOrTrunc(" Select a row and press Enter", innerW)))
+	if showHint {
+		content = append(content, styles.Dim.Render(overlay.PadOrTrunc(" Select a row and press Enter", innerW)))
+	}
 
 	key := styles.Prompt
 	dim := styles.Dim

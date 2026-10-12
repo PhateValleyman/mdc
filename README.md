@@ -172,7 +172,7 @@ Now `mdcd` launches mdc; when you quit, the shell `cd`s into the directory the a
 | `Ctrl-P` | Fuzzy finder |
 | `Ctrl-B` | Bookmarks |
 | `Ctrl-T` | Theme picker (live preview) |
-| `Alt-O` | Settings (theme and hidden-file visibility) |
+| `Alt-O` | Settings (theme, hidden files, SSH servers, rclone remotes) |
 | `Ctrl-H` | Toggle hidden files |
 | `Ctrl-Q` | Quick view - preview selected file in the other pane |
 | `Shift-F5` | Copy path - pick and copy a path variant of the selected file to the clipboard |
@@ -325,7 +325,9 @@ quick_view    = "ctrl+q"
 
 See [`config.example.toml`](config.example.toml) for the full reference.
 
-The `Settings` overlay is also available from the trailing item on the function-key menu. It provides the live theme picker and hidden-file visibility toggle without changing the F1–F10 actions.
+The `Settings` overlay is also available from the trailing item on the function-key menu. It provides the live theme picker, hidden-file visibility toggle, SSH server manager, and rclone remote manager without changing the F1–F10 actions. The SSH and rclone rows open the same managers as their existing shortcuts; rclone authentication and configuration continue to run through rclone's native terminal workflow.
+
+The function-key bar keeps every F1–F10 token in its own MC-style box and adapts action aliases to each slot's remaining cells instead of clipping either the key or label. Compact mnemonics include `H/Hp` (Help), `B/Bk` (Bookmarks), `V/Vw` (View), `E/Ed` (Edit), `C/Cp` (Copy), `M/Mv` (Move), `K/Mk` (Mkdir), `D/Dl` (Delete), `F/FZ` (Fuzzy finder), and `Q/Qt` (Quit). Slots show one-character aliases when that's all that fits, two-character aliases when available (for example at 80 columns), and descriptive labels at wider sizes. The boxed Settings item appears only when all ten framed F-key choices fit (64 columns with the default bindings). Below the physical one-row minimum, the bar wraps into the minimum rows needed to keep every key token and box intact. Key bindings and click regions do not change.
 
 ## Themes
 

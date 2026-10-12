@@ -11,15 +11,18 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/kooler/MiddayCommander/internal/actions"
 	"github.com/kooler/MiddayCommander/internal/remote"
 	"github.com/kooler/MiddayCommander/internal/remote/testserver"
 	"github.com/kooler/MiddayCommander/internal/ui/bookmarks"
 	"github.com/kooler/MiddayCommander/internal/ui/dialog"
+	menubarui "github.com/kooler/MiddayCommander/internal/ui/menubar"
 	"github.com/kooler/MiddayCommander/internal/ui/panel"
 	rcloneui "github.com/kooler/MiddayCommander/internal/ui/rclone"
 	"github.com/kooler/MiddayCommander/internal/ui/servers"
+	settingsui "github.com/kooler/MiddayCommander/internal/ui/settings"
 	"github.com/kooler/MiddayCommander/internal/ui/themepicker"
 	"github.com/kooler/MiddayCommander/internal/vfs"
 )
@@ -98,6 +101,83 @@ func TestSettingsShortcutAndVisibilityToggle(t *testing.T) {
 	m, _ = run(t, m, themepicker.DismissMsg{})
 	if m.settings == nil || m.themePicker != nil {
 		t.Fatal("cancelling theme picker from Settings should return to Settings")
+	}
+}
+
+func TestSettingsRemoteEntriesRouteToExistingManagers(t *testing.T) {
+	t.Run("SSH servers", func(t *testing.T) {
+		isolate(t)
+		m := newModel(t)
+		m.openSettings()
+		m, cmd := run(t, m, settingsui.ServersRequestedMsg{})
+		if cmd != nil || m.settings != nil || m.servers == nil {
+			t.Fatalf("SSH settings action should open the existing server manager: settings=%v servers=%v cmd=%v", m.settings, m.servers != nil, cmd != nil)
+		}
+	})
+	t.Run("rclone remotes", func(t *testing.T) {
+		isolate(t)
+		m := newModel(t)
+		m.openSettings()
+		m, cmd := run(t, m, settingsui.RcloneRequestedMsg{})
+		if cmd == nil || m.settings != nil || m.rclonePicker == nil {
+			t.Fatalf("rclone settings action should open the existing remote manager: settings=%v remotes=%v cmd=%v", m.settings, m.rclonePicker != nil, cmd != nil)
+		}
+	})
+}
+
+func TestSettingsOverlayBlocksMenuClicksWithoutChangingSelection(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		x    int
+		raw  string
+	}{{"F10 quit", 80, "f10"}, {"Settings", 90, "alt+o"}} {
+		t.Run(tc.name, func(t *testing.T) {
+			isolate(t)
+			m := newModel(t)
+			m.openSettings()
+			for i := 0; i < 2; i++ {
+				updated, _ := m.settings.Update(tea.KeyMsg{Type: tea.KeyDown})
+				m.settings = &updated
+			}
+			before := *m.settings
+			if got := menubarui.HandleClick(tc.x, m.width, m.menuItems); got != tc.raw {
+				t.Fatalf("column %d is routed to %q, want %q", tc.x, got, tc.raw)
+			}
+
+			m, cmd := run(t, m, tea.MouseMsg{
+				X: tc.x, Y: m.height - 1, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress,
+			})
+			if cmd != nil {
+				t.Fatalf("modal Settings menu click dispatched a command: %v", cmd)
+			}
+			if m.settings == nil || !reflect.DeepEqual(*m.settings, before) {
+				t.Fatalf("menu click changed or closed Settings selection: before=%+v after=%+v", before, m.settings)
+			}
+		})
+	}
+}
+
+func TestVeryNarrowWrappedMenuReservesRowsAndRoutesClicks(t *testing.T) {
+	isolate(t)
+	m := newModel(t)
+	m.width = 24
+	m.height = 30
+	m.recalcLayout()
+
+	menuHeight := menubarui.Height(m.width, m.menuItems)
+	if menuHeight != 2 {
+		t.Fatalf("24-column menu height = %d, want two boxed rows", menuHeight)
+	}
+	if got := lipgloss.Height(m.View()); got != m.height {
+		t.Fatalf("root view height = %d, want terminal height %d", got, m.height)
+	}
+
+	menuTop := m.height - menuHeight
+	m, _ = run(t, m, tea.MouseMsg{
+		X: 0, Y: menuTop, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress,
+	})
+	if m.help == nil {
+		t.Fatal("clicking F1 in the first wrapped menu row should open Help")
 	}
 }
 

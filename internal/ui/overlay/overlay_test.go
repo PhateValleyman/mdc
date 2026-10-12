@@ -9,6 +9,19 @@ import (
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 )
 
+func TestFrameRowUsesExactWidthAndVisibleEdges(t *testing.T) {
+	border := theme.Default().OverlayStyles().Border
+	for _, width := range []int{1, 2, 3, 8, 24} {
+		row := FrameRow("choice", width, border)
+		if got := ansi.StringWidth(row); got != width {
+			t.Errorf("width %d rendered as %d cells", width, got)
+		}
+		if width >= 2 && (!strings.Contains(row, "╞") || !strings.Contains(row, "╡")) {
+			t.Errorf("width %d is missing its MC frame edges: %q", width, row)
+		}
+	}
+}
+
 // TestPadOrTrunc checks padding and right-truncation to exact cell widths.
 func TestPadOrTrunc(t *testing.T) {
 	tests := []struct {

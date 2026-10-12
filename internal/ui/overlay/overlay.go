@@ -106,6 +106,18 @@ func RenderBox(title string, contentLines []string, footer string, width, height
 	return strings.Join(lines, "\n")
 }
 
+// FrameRow adds a compact Midnight Commander-style border to one selectable
+// row while preserving its one-terminal-line height and exact cell width.
+func FrameRow(content string, width int, border lipgloss.Style) string {
+	if width <= 0 {
+		return ""
+	}
+	if width == 1 {
+		return border.Render("│")
+	}
+	return border.Render("╞") + PadOrTrunc(content, width-2) + border.Render("╡")
+}
+
 func fitLine(s string, width int, fill lipgloss.Style) string {
 	if width < 1 {
 		return ""

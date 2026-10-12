@@ -425,9 +425,10 @@ func (m ConfigEditorModel) View(th theme.Theme, screenWidth, screenHeight int) s
 					label += " — " + uitext.SafeTerminalText(p.Description)
 				}
 				if i == m.cursor {
-					lines = append(lines, selected.Render(pad(prefix+label, innerW)))
+					lines = append(lines, overlay.FrameRow(selected.Render(pad(prefix+label, innerW-2)), innerW, styles.Highlight))
 				} else {
-					lines = append(lines, key.Render(prefix)+base.Render(pad(label, innerW-len(prefix))))
+					row := key.Render(prefix) + base.Render(pad(label, innerW-2-len(prefix)))
+					lines = append(lines, overlay.FrameRow(row, innerW, styles.Border))
 				}
 			}
 		}
@@ -469,7 +470,12 @@ func (m ConfigEditorModel) View(th theme.Theme, screenWidth, screenHeight int) s
 					if example.Help != "" {
 						label += " — " + uitext.SafeTerminalText(example.Help)
 					}
-					lines = append(lines, key.Render(prefix)+base.Render(label))
+					row := key.Render(prefix) + base.Render(overlay.PadOrTrunc(label, innerW-2-len(prefix)))
+					if value == m.answer {
+						lines = append(lines, overlay.FrameRow(selected.Render(overlay.PadOrTrunc(prefix+label, innerW-2)), innerW, styles.Highlight))
+					} else {
+						lines = append(lines, overlay.FrameRow(row, innerW, styles.Border))
+					}
 				}
 			} else {
 				shown := uitext.SafeTerminalText(m.answer)

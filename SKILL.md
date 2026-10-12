@@ -19,6 +19,7 @@
 - Keep key hints in overlays synchronized with actual key handling and README documentation.
 - Preserve dual-panel navigation and existing MC-style function-key behavior.
 - Use `theme.Theme.OverlayStyles()` for dialogs, pickers, help, and settings; legacy themes derive semantic overlay colors from panel/menu roles, with optional `[overlay]` TOML overrides.
+- Use `overlay.FrameRow` for selectable panel/menu rows so MC-style selection frames stay consistent, theme-aware, and one terminal row high. Box every F-key item and preserve its complete key token; fit only a whole action alias into leftover cells. Show pinned Settings only when all ten boxed F-key items fit. Keep one row when it can physically fit; below that minimum, wrap into the fewest rows needed without truncating tokens.
 - Keep any trailing menu additions independent of the ten F1–F10 slots, and cover settings routing plus narrow-terminal behavior with focused tests.
 - Pass filesystem-, provider-, and device-derived labels through `internal/ui/text.SafeTerminalText` before terminal rendering; keep stored paths and values unchanged for operations.
 

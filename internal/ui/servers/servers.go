@@ -470,9 +470,10 @@ func (m Model) listLines(st styles) []string {
 		text = truncate(text, st.innerW-len(prefix))
 
 		if i == m.cursor {
-			lines = append(lines, st.cursor.Render(pad(prefix+text, st.innerW)))
+			lines = append(lines, overlay.FrameRow(st.cursor.Render(pad(prefix+text, st.innerW-2)), st.innerW, st.key))
 		} else {
-			lines = append(lines, st.num.Render(prefix)+st.base.Render(pad(text, st.innerW-len(prefix))))
+			row := st.num.Render(prefix) + st.base.Render(pad(text, st.innerW-2-len(prefix)))
+			lines = append(lines, overlay.FrameRow(row, st.innerW, st.dim))
 		}
 	}
 

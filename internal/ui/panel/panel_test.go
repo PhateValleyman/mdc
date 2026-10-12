@@ -9,10 +9,10 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-	"github.com/muesli/termenv"
 	"github.com/kooler/MiddayCommander/internal/config"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 	"github.com/kooler/MiddayCommander/internal/vfs/local"
+	"github.com/muesli/termenv"
 )
 
 // mustWrite and mustMkdir create fixture files, failing the test instead of
@@ -214,10 +214,10 @@ func TestRenderRowStates(t *testing.T) {
 	m.width = 30
 
 	tests := []struct {
-		name      string
-		active    bool
-		cursor    bool
-		selected  bool
+		name       string
+		active     bool
+		cursor     bool
+		selected   bool
 		expectExec bool
 	}{
 		{"normal", true, false, false, true},
@@ -251,11 +251,11 @@ type nameOnlyEntry struct {
 	isDir bool
 }
 
-func (e *nameOnlyEntry) Name() string              { return e.name }
-func (e *nameOnlyEntry) IsDir() bool               { return e.isDir }
-func (e *nameOnlyEntry) Type() fs.FileMode         { return 0 }
+func (e *nameOnlyEntry) Name() string               { return e.name }
+func (e *nameOnlyEntry) IsDir() bool                { return e.isDir }
+func (e *nameOnlyEntry) Type() fs.FileMode          { return 0 }
 func (e *nameOnlyEntry) Info() (fs.FileInfo, error) { return nil, nil }
-func (e *nameOnlyEntry) String() string            { return e.name }
+func (e *nameOnlyEntry) String() string             { return e.name }
 
 // symlinkToDirEntry is a minimal fs.DirEntry that behaves like a directory but
 // reports IsDir=false (same as os.ReadDir on a symlink-to-dir).
@@ -321,3 +321,23 @@ func TestRenderRowAsciiCursorReverse(t *testing.T) {
 	}
 }
 
+func TestPanelViewFramesSelectableRowsAtNarrowWidths(t *testing.T) {
+	for _, width := range []int{8, 14, 24, 40} {
+		m := newTestModel(t, t.TempDir())
+		m.width = width
+		m.height = 3
+		m.entries = []fs.DirEntry{&nameOnlyEntry{name: "alpha", isDir: false}}
+		m.infos = []fs.FileInfo{nil}
+		m.cursor = 0
+		m.active = true
+		view := m.View(theme.Default())
+		if !strings.Contains(view, "╞") || !strings.Contains(view, "╡") {
+			t.Errorf("width %d: selectable panel row is not framed: %q", width, view)
+		}
+		for i, line := range strings.Split(view, "\n") {
+			if got := lipgloss.Width(line); got != width {
+				t.Errorf("width %d row %d rendered at %d cells", width, i, got)
+			}
+		}
+	}
+}

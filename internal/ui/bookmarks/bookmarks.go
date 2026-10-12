@@ -296,9 +296,11 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 
 		line := prefix + display
 		if isCursor {
-			contentLines = append(contentLines, cursorStyle.Render(overlay.PadOrTrunc(line, innerW)))
+			row := cursorStyle.Render(overlay.PadOrTrunc(line, innerW-2))
+			contentLines = append(contentLines, overlay.FrameRow(row, innerW, styles.Highlight))
 		} else {
-			contentLines = append(contentLines, numStyle.Render(prefix)+bgStyle.Render(overlay.PadOrTrunc(display, innerW-len(prefix))))
+			row := numStyle.Render(prefix) + bgStyle.Render(overlay.PadOrTrunc(display, innerW-2-len(prefix)))
+			contentLines = append(contentLines, overlay.FrameRow(row, innerW, styles.Border))
 		}
 	}
 

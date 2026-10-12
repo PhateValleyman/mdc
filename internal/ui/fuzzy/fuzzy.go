@@ -204,15 +204,17 @@ func (m Model) View(th theme.Theme, screenWidth, screenHeight int) string {
 		}
 		display := rel
 		display = uitext.SafeTerminalText(display)
-		if ansi.StringWidth(display) > innerW-1 {
-			display = overlay.TruncateLeftEllipsis(display, innerW-1)
+		if ansi.StringWidth(display) > innerW-3 {
+			display = overlay.TruncateLeftEllipsis(display, innerW-3)
 		}
 
 		var line string
 		if isCursor {
-			line = cursorStyle.Render(overlay.PadOrTrunc(" "+display, innerW))
+			line = cursorStyle.Render(overlay.PadOrTrunc(" "+display, innerW-2))
+			line = overlay.FrameRow(line, innerW, styles.Highlight)
 		} else {
-			line = renderWithHighlights(" "+display, shiftIdxs(mt.matchIdxs, 1), normalStyle, matchHLStyle, innerW)
+			line = renderWithHighlights(" "+display, shiftIdxs(mt.matchIdxs, 1), normalStyle, matchHLStyle, innerW-2)
+			line = overlay.FrameRow(line, innerW, styles.Border)
 		}
 		contentLines = append(contentLines, line)
 	}

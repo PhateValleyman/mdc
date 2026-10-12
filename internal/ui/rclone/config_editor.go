@@ -405,7 +405,7 @@ func (m ConfigEditorModel) View(th theme.Theme, screenWidth, screenHeight int) s
 	switch m.mode {
 	case configModeProviders:
 		if m.filtering {
-			lines = append(lines, key.Render(" Filter: ")+base.Render(m.filter+"_"))
+			lines = append(lines, key.Render(" Filter: ")+base.Render(uitext.SafeTerminalText(m.filter)+"_"))
 		}
 		if m.loading {
 			lines = append(lines, dim.Render(" Loading rclone providers…"))

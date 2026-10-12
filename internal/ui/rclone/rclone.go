@@ -240,7 +240,7 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 
 	var lines []string
 	if m.filtering {
-		lines = append(lines, key.Render(" Filter: ")+base.Render(m.filter+"_"))
+		lines = append(lines, key.Render(" Filter: ")+base.Render(uitext.SafeTerminalText(m.filter)+"_"))
 	}
 	if m.loading {
 		lines = append(lines, dim.Render(" Loading rclone remotes…"))

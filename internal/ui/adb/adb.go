@@ -299,7 +299,7 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 	var lines []string
 	if m.connectMode {
 		lines = append(lines, dim.Render(" Connect an ADB TCP/IP device using host[:port]. Port defaults to 5555."))
-		lines = append(lines, key.Render(" Device: ")+base.Render(m.connectTarget+"_"))
+		lines = append(lines, key.Render(" Device: ")+base.Render(uitext.SafeTerminalText(m.connectTarget)+"_"))
 		if m.connectLoading {
 			lines = append(lines, dim.Render(" Connecting and refreshing devices…"))
 		} else if m.err != nil {
@@ -307,7 +307,7 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 		}
 	} else {
 		if m.filtering {
-			lines = append(lines, key.Render(" Filter: ")+base.Render(m.filter+"_"))
+			lines = append(lines, key.Render(" Filter: ")+base.Render(uitext.SafeTerminalText(m.filter)+"_"))
 		}
 		if m.connectNotice != "" {
 			lines = append(lines, dim.Render(" "+m.connectNotice))

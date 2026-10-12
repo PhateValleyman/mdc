@@ -1,10 +1,12 @@
 package adb
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/kooler/MiddayCommander/internal/ui/theme"
 	"github.com/kooler/MiddayCommander/internal/vfs/adbfs"
 )
 
@@ -43,5 +45,23 @@ func TestConnectModeStartsAsyncConnection(t *testing.T) {
 	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil || !m.connectLoading {
 		t.Fatal("Enter should start connection asynchronously")
+	}
+}
+
+func TestConnectAndFilterInputsCannotReorderDisplayedText(t *testing.T) {
+	m := New(100, 30)
+	m.connectMode = true
+	m.connectTarget = "phone\u202e.example"
+	view := m.View(theme.Theme{}, 100, 30)
+	if strings.Contains(view, "\u202e") {
+		t.Fatal("ADB target input retained a bidi control character")
+	}
+
+	m.connectMode = false
+	m.filtering = true
+	m.filter = "phone\u202e"
+	view = m.View(theme.Theme{}, 100, 30)
+	if strings.Contains(view, "\u202e") {
+		t.Fatal("ADB filter retained a bidi control character")
 	}
 }

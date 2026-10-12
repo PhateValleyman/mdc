@@ -21,6 +21,13 @@ type CreateConfigRequestedMsg struct{}
 
 type EditConfigRequestedMsg struct{ Remote string }
 
+type ReconnectRequestedMsg struct{ Remote string }
+
+type ReconnectDoneMsg struct {
+	Remote string
+	Err    error
+}
+
 type RemotesLoadedMsg struct {
 	Remotes []string
 	Err     error
@@ -105,6 +112,11 @@ func (m Model) Update(msg tea.KeyMsg) (Model, tea.Cmd) {
 		if !m.loading && m.cursor >= 0 && m.cursor < len(m.items) {
 			remote := m.items[m.cursor]
 			return m, func() tea.Msg { return EditConfigRequestedMsg{Remote: remote} }
+		}
+	case "o":
+		if !m.loading && m.cursor >= 0 && m.cursor < len(m.items) {
+			remote := m.items[m.cursor]
+			return m, func() tea.Msg { return ReconnectRequestedMsg{Remote: remote} }
 		}
 	default:
 		if len(msg.String()) == 1 && msg.String()[0] >= '0' && msg.String()[0] <= '9' {
@@ -252,7 +264,7 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 		}
 	}
 
-	footer := key.Render(" Enter") + dim.Render(":Open  ") + key.Render("a") + dim.Render(":Add  ") + key.Render("e") + dim.Render(":Edit  ") + key.Render("f") + dim.Render(":Filter  ") + key.Render("Esc") + dim.Render(":Close")
+	footer := key.Render(" Enter") + dim.Render(":Open  ") + key.Render("o") + dim.Render(":OAuth  ") + key.Render("a") + dim.Render(":Add  ") + key.Render("e") + dim.Render(":Edit  ") + key.Render("f") + dim.Render(":Filter  ") + key.Render("Esc") + dim.Render(":Close")
 	if m.filtering {
 		footer = key.Render(" Enter") + dim.Render(":Open  ") + key.Render("Esc") + dim.Render(":Clear filter")
 	}

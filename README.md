@@ -245,7 +245,7 @@ ssh://user@host:2222/srv/app
 
 ### rclone remotes
 
-Install `rclone` and press `Shift+R` to browse remotes from the active panel. Use `Enter` to open one, `f` to filter, `a` to add a remote, and `e` to edit the selected remote. Adding and editing use MDC windows rather than rclone's terminal wizard; provider questions are shown in the app, and password/sensitive fields are masked. Rclone saves the configuration using its usual config file and credential handling.
+Install `rclone` and press `Shift+R` to browse remotes from the active panel. Use `Enter` to open one, `f` to filter, `a` to add a remote, and `e` to edit the selected remote. Adding and editing use MDC windows rather than rclone's terminal wizard; provider questions are shown in the app, and password/sensitive fields are masked. Rclone saves the configuration using its usual config file and credential handling. Press `o` on a configured remote to run `rclone config reconnect` in the terminal. This suspends MDC while rclone completes its native browser-based OAuth flow (including the local callback server when required), then returns to the file manager and refreshes the remote list and panels. OAuth tokens remain managed by rclone; MDC does not read or store them.
 
 Rclone panels support normal navigation and file operations, including copy (`F5`), move (`F6`), create directory (`F7`), delete (`F8`), and rename (`Shift-F6`). Single-file viewing and editing (`F3`/`F4`) use a temporary local staging copy and upload edits back to the remote. You can also open a remote path from `Ctrl-G` or a bookmark using `rclone://remote/path`, for example `rclone://drive/backups`.
 

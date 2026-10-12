@@ -71,3 +71,20 @@ func itoa(n int) string {
 	}
 	return string(rune('0'+n/10)) + string(rune('0'+n%10))
 }
+
+func TestHandleClickNarrowTerminal(t *testing.T) {
+	items := []Item{
+		{Label: "One", RawKey: "one"},
+		{Label: "Two", RawKey: "two"},
+		{Label: "Three", RawKey: "three"},
+	}
+	if got := HandleClick(0, 2, items); got != "one" {
+		t.Fatalf("first narrow slot = %q, want one", got)
+	}
+	if got := HandleClick(1, 2, items); got != "two" {
+		t.Fatalf("second narrow slot = %q, want two", got)
+	}
+	if got := HandleClick(0, 0, items); got != "" {
+		t.Fatalf("zero-width click = %q, want empty", got)
+	}
+}

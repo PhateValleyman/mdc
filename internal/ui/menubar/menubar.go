@@ -132,7 +132,19 @@ func HandleClick(x, width int, items []Item) string {
 	if n == 0 {
 		return ""
 	}
+	// Very narrow terminals can be smaller than the number of menu slots.
+	// Avoid a zero-width division and treat any visible click as the first slot.
+	if width <= 0 {
+		return ""
+	}
 	colWidth := width / n
+	if colWidth == 0 {
+		idx := x
+		if idx >= n {
+			idx = n - 1
+		}
+		return items[idx].RawKey
+	}
 	idx := x / colWidth
 	if idx >= n {
 		idx = n - 1

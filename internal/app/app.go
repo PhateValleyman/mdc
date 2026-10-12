@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -400,6 +401,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case rcloneui.EditConfigRequestedMsg:
 		return m.startRcloneConfigEdit(msg.Remote)
+
+	case rcloneui.ReconnectRequestedMsg:
+		// Suspend the TUI so rclone can run its interactive browser-based OAuth flow.
+		// Keep the picker alive so it can refresh when rclone returns.
+		cmd := exec.Command("rclone", "config", "reconnect", msg.Remote+":")
+		return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
+			return rcloneui.ReconnectDoneMsg{Remote: msg.Remote, Err: err}
+		})
+
+	case rcloneui.ReconnectDoneMsg:
+		if msg.Err != nil {
+			return m.showError("rclone OAuth", fmt.Errorf("authentication for %q failed: %w", msg.Remote, msg.Err))
+		}
+		if m.rclonePicker != nil {
+			m.rclonePicker.BeginRefresh()
+		}
+		return m, tea.Batch(rcloneui.LoadRemotesCmd(), m.refreshBothPanels())
 
 		// Bookmark messages
 	case bookmarks.SelectMsg:

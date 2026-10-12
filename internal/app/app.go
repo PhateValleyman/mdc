@@ -366,6 +366,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.startRcloneConfig()
 
 	case rcloneui.ConfigCommandDoneMsg:
+		if msg.Err != nil {
+			return m.showError("rclone configuration", errors.New("rclone config did not complete. Check that rclone is installed and try again."))
+		}
 		if m.rclonePicker != nil {
 			m.rclonePicker.BeginRefresh()
 		}

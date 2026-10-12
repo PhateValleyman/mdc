@@ -24,8 +24,8 @@ func rcloneConfigCommand() *exec.Cmd {
 
 func (m Model) startRcloneConfig() (tea.Model, tea.Cmd) {
 	cmd := rcloneConfigCommand()
-	return m, tea.ExecProcess(cmd, func(_ error) tea.Msg {
-		return rcloneui.ConfigCommandDoneMsg{}
+	return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
+		return rcloneui.ConfigCommandDoneMsg{Err: err}
 	})
 }
 

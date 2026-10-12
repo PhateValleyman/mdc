@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -666,6 +667,40 @@ func TestRcloneConfigCompletionRefreshesRemotePickerAndPanels(t *testing.T) {
 	}
 	if cmd == nil {
 		t.Fatal("native config completion should refresh remotes and panels")
+	}
+}
+
+func TestRcloneConfigFailureShowsSafeErrorWithoutRefreshing(t *testing.T) {
+	isolate(t)
+	m := newModel(t)
+	picker := rcloneui.New(100, 30)
+	picker.HandleRemotes(rcloneui.RemotesLoadedMsg{Remotes: []string{"old"}})
+	m.rclonePicker = &picker
+
+	const diagnostic = "private-stderr-marker"
+	missingBinary := filepath.Join(t.TempDir(), diagnostic)
+	process := exec.Command(missingBinary, "config")
+	launchErr := process.Start()
+	if launchErr == nil {
+		_ = process.Process.Kill()
+		t.Fatal("expected a launch error for a missing rclone executable")
+	}
+	updated, cmd := run(t, m, rcloneui.ConfigCommandDoneMsg{Err: launchErr})
+	if cmd != nil {
+		t.Fatal("failed native config command must not trigger a success refresh")
+	}
+	if updated.dialog == nil || updated.dialog.Kind() != dialog.KindError {
+		t.Fatal("failed native config command should show an error dialog")
+	}
+	view := updated.dialog.View(updated.theme, 100, 30)
+	if !strings.Contains(view, "rclone config did not complete") {
+		t.Fatal("generic rclone config failure message is missing")
+	}
+	if strings.Contains(view, diagnostic) {
+		t.Fatal("raw process diagnostics should not be displayed")
+	}
+	if updated.rclonePicker == nil || strings.Contains(updated.rclonePicker.View(updated.theme, 100, 30), "Loading rclone remotes") {
+		t.Fatal("failed native config command must not present a refreshed picker")
 	}
 }
 

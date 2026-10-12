@@ -22,7 +22,7 @@ type CreateConfigRequestedMsg struct{}
 
 type EditConfigRequestedMsg struct{ Remote string }
 
-type ConfigCommandDoneMsg struct{}
+type ConfigCommandDoneMsg struct{ Err error }
 
 type ReconnectRequestedMsg struct{ Remote string }
 

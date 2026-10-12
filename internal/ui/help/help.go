@@ -119,6 +119,7 @@ func (m Model) rightEntries() []entry {
 		{"Bookmarks", fmtKeys(k.Bookmarks)},
 		{"SSH servers", fmtKeys(k.Servers)},
 		{"rclone remotes", fmtKeys(k.Rclone)},
+		{"ADB devices", fmtKeys(k.ADB)},
 		{"Quick search", fmtKeys(k.QuickSearch)},
 		{"Theme picker", fmtKeys(k.ThemePicker)},
 		{"Run command", fmtKeys(k.CmdExec)},
@@ -137,6 +138,9 @@ func fmtKeys(keys config.StringOrList) string {
 }
 
 func formatKey(k string) string {
+	if len(k) == 1 && k[0] >= 'A' && k[0] <= 'Z' {
+		return "Shift-" + k
+	}
 	if len(k) > 1 && k[0] == 'f' && k[1] >= '0' && k[1] <= '9' {
 		if n, err := strconv.Atoi(k[1:]); err == nil && n >= 13 && n <= 20 {
 			return fmt.Sprintf("Shift-F%d", n-12)

@@ -27,8 +27,9 @@ Try online: <a href="https://build.demoshell.com/launch?snapshot=kooler%2Ftui%3A
 - **Archive browsing** - enter ZIP, TAR, 7z, RAR, GZ, BZ2, XZ, LZ4 files as virtual directories
 - **SSH/SFTP panels** - open a remote server in either panel
 - **rclone remotes** - browse configured remotes, perform file operations, and bookmark remote paths
+- **Android ADB panels** - browse files on attached devices and edit files with changes uploaded back
 - **Fuzzy finder** - recursive file search with real-time fuzzy matching
-- **Bookmarks** to quickly jump to most visited local, SSH, and rclone locations
+- **Bookmarks** to quickly jump to local, SSH, rclone, and ADB locations
 - **Configurable keybindings** - every key is remappable via `config.toml`
 - **Smart autocomplete** - path and command suggestions with `Tab` completion in Go to path and Execute command
 - **File operations** - copy, move, delete, rename, mkdir with confirmation dialogs
@@ -149,6 +150,7 @@ Now `mdcd` launches mdc; when you quit, the shell `cd`s into the directory the a
 | `F2` | Bookmarks |
 | `Shift-F2` | SSH servers |
 | `Shift+R` | rclone remotes |
+| `Shift+A` | ADB devices |
 | `F3` | View file (`$PAGER`) |
 | `F4` | Edit file (`$EDITOR`) |
 | `F5` | Copy to other panel |
@@ -237,17 +239,23 @@ ssh://user@host:2222/srv/app
 
 **Host keys** are checked against `~/.ssh/known_hosts`. A host you have not seen before shows its fingerprint for you to confirm; a host whose key has *changed* is refused. Resolve it by editing `known_hosts` once you have verified the new key.
 
-**What is unavailable on a remote panel.** The fuzzy finder (`F9`/`Ctrl-P`), running a file with `Enter`, and the command runner (`Ctrl-R`) all need a local working directory and do nothing on SSH or rclone panels. `Ctrl-O` opens a shell in the panel's local directory instead. `F3` and `F4` work: the file is downloaded to a temporary copy, opened in `$PAGER`/`$EDITOR`, and written back if you changed it.
+**What is unavailable on a remote panel.** The fuzzy finder (`F9`/`Ctrl-P`), running a file with `Enter`, and the command runner (`Ctrl-R`) all need a local working directory and do nothing on SSH, rclone, or ADB panels. `Ctrl-O` opens a shell in the panel's local directory instead. `F3` and `F4` work: the file is downloaded to a temporary copy, opened in `$PAGER`/`$EDITOR`, and written back if you changed it.
 
-**Progress.** Copying *from* an SSH or rclone remote shows the number of files completed rather than a percentage: counting a remote tree requires a full recursive scan before the first byte moves which can be very slow. Cancelling a transfer with `Esc` leaves nothing behind — files are written to a temp name and renamed into place only once complete.
+**Progress.** Copying *from* an SSH, rclone, or ADB remote shows the number of files completed rather than a percentage: counting a remote tree requires a full recursive scan before the first byte moves which can be very slow. Cancelling a transfer with `Esc` leaves nothing behind — files are written to a temp name and renamed into place only once complete.
 
 ### rclone remotes
 
-Install `rclone` and configure remotes with `rclone config`. Press `Shift+R` to browse the remotes from the active panel. Use `Enter` to open a remote, `f` to filter, and `e` to launch rclone's interactive `rclone config edit` wizard for adding or editing provider settings. The wizard runs directly in the terminal; mdc does not read, store, or log credential values.
+Install `rclone` and press `Shift+R` to browse remotes from the active panel. Use `Enter` to open one, `f` to filter, `a` to add a remote, and `e` to edit the selected remote. Adding and editing use MDC windows rather than rclone's terminal wizard; provider questions are shown in the app, and password/sensitive fields are masked. Rclone saves the configuration using its usual config file and credential handling.
 
 Rclone panels support normal navigation and file operations, including copy (`F5`), move (`F6`), create directory (`F7`), delete (`F8`), and rename (`Shift-F6`). Single-file viewing and editing (`F3`/`F4`) use a temporary local staging copy and upload edits back to the remote. You can also open a remote path from `Ctrl-G` or a bookmark using `rclone://remote/path`, for example `rclone://drive/backups`.
 
 Rclone error details are intentionally not copied into mdc's UI because backend diagnostics can include sensitive provider information; failures show only the operation and exit status.
+
+### Android devices over ADB
+
+Install Android Platform Tools, enable USB debugging on the device, connect it to the computer, and authorize the computer on the device. Press `Shift+A` to list ADB targets; choose an existing `device` entry and press `Enter` to open it at `/sdcard`. Press `c` to add a network target by host name or IP, optionally with `:port` (defaults to `5555`); MDC runs `adb connect` and refreshes the list. Android Wireless Debugging may require completing `adb pair` first using the pairing port and code shown on the device. Normal panel navigation and file operations are available; use `F3`/`F4` to view or edit a file, and edits are uploaded back to the device. The device's Android shell permissions still apply, so app-private directories generally require root or the app's own `run-as` context.
+
+ADB locations can also be opened with `Ctrl+G` or stored as bookmarks using `adb://SERIAL/path`, for example `adb://R58M1234ABC/sdcard/Download`. Use `r` in the device picker to refresh the list.
 
 ### Quick view
 

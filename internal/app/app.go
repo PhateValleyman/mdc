@@ -18,6 +18,7 @@ import (
 	"github.com/kooler/MiddayCommander/internal/bookmark"
 	"github.com/kooler/MiddayCommander/internal/config"
 	"github.com/kooler/MiddayCommander/internal/remote"
+	adbui "github.com/kooler/MiddayCommander/internal/ui/adb"
 	"github.com/kooler/MiddayCommander/internal/ui/bookmarks"
 	"github.com/kooler/MiddayCommander/internal/ui/cmdexec"
 	"github.com/kooler/MiddayCommander/internal/ui/copypath"
@@ -33,6 +34,7 @@ import (
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 	"github.com/kooler/MiddayCommander/internal/ui/themepicker"
 	"github.com/kooler/MiddayCommander/internal/vfs"
+	"github.com/kooler/MiddayCommander/internal/vfs/adbfs"
 	"github.com/kooler/MiddayCommander/internal/vfs/local"
 	"github.com/kooler/MiddayCommander/internal/vfs/rclonefs"
 )
@@ -82,7 +84,9 @@ type Model struct {
 	fuzzy        *fuzzy.Model
 	bookmarks    *bookmarks.Model
 	servers      *servers.Model
+	adbPicker    *adbui.Model
 	rclonePicker *rcloneui.Model
+	rcloneConfig *rcloneui.ConfigEditorModel
 	help         *help.Model
 	themePicker  *themepicker.Model
 	cmdExec      *cmdexec.Model
@@ -105,6 +109,7 @@ type Model struct {
 	connRegistry      *remote.Registry
 	panelConns        map[FocusTarget]*remote.Conn
 	rcloneFileSystems map[string]*rclonefs.FS
+	adbFileSystems    map[string]*adbfs.FS
 
 	// Kept while a host key or passphrase dialog is open, so the attempt can
 	// be retried with the answer.
@@ -217,6 +222,7 @@ func NewWithOptions(opts Options) Model {
 		connRegistry:      remote.NewRegistry(),
 		panelConns:        map[FocusTarget]*remote.Conn{},
 		rcloneFileSystems: map[string]*rclonefs.FS{},
+		adbFileSystems:    map[string]*adbfs.FS{},
 	}
 }
 
@@ -250,6 +256,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		if m.rclonePicker != nil {
 			m.rclonePicker.SetSize(msg.Width, msg.Height)
+		}
+		if m.adbPicker != nil {
+			m.adbPicker.SetSize(msg.Width, msg.Height)
+		}
+		if m.rcloneConfig != nil {
+			m.rcloneConfig.SetSize(msg.Width, msg.Height)
 		}
 		m.recalcLayout()
 		return m, nil
@@ -322,6 +334,59 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case adbui.DevicesLoadedMsg:
+		if m.adbPicker != nil {
+			m.adbPicker.HandleDevices(msg)
+		}
+		return m, nil
+
+	case adbui.ConnectDoneMsg:
+		if m.adbPicker != nil {
+			m.adbPicker.HandleConnect(msg)
+		}
+		return m, nil
+
+	case adbui.DismissMsg:
+		m.adbPicker = nil
+		return m, nil
+
+	case adbui.SelectMsg:
+		m.adbPicker = nil
+		return m.openADBDevice(msg.Device.Serial, "/sdcard")
+
+	case rcloneui.ConfigProvidersLoadedMsg:
+		if m.rcloneConfig != nil {
+			m.rcloneConfig.HandleProviders(msg)
+		}
+		return m, nil
+
+	case rcloneui.ConfigQuestionMsg:
+		if m.rcloneConfig != nil && m.rcloneConfig.HandleQuestion(msg) {
+			m.rcloneConfig = nil
+			if m.rclonePicker != nil {
+				m.rclonePicker.BeginRefresh()
+			}
+			return m, tea.Batch(rcloneui.LoadRemotesCmd(), m.refreshBothPanels())
+		}
+		return m, nil
+
+	case rcloneui.ConfigCancelMsg:
+		m.rcloneConfig = nil
+		return m, rcloneui.CancelConfigCmd(msg.Remote, msg.DeleteRemote)
+
+	case rcloneui.ConfigEditorDismissMsg:
+		m.rcloneConfig = nil
+		return m, nil
+
+	case rcloneui.ConfigCancelledMsg:
+		if msg.Err != nil {
+			return m.showError("Could not discard rclone remote", msg.Err)
+		}
+		if m.rclonePicker != nil {
+			m.rclonePicker.BeginRefresh()
+		}
+		return m, tea.Batch(rcloneui.LoadRemotesCmd(), m.refreshBothPanels())
+
 	case rcloneui.DismissMsg:
 		m.rclonePicker = nil
 		return m, nil
@@ -330,16 +395,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.rclonePicker = nil
 		return m.openRcloneRemote(msg.Remote, "/")
 
+	case rcloneui.CreateConfigRequestedMsg:
+		return m.startRcloneConfigCreate()
+
 	case rcloneui.EditConfigRequestedMsg:
-		return m, m.rcloneConfigEditCmd()
+		return m.startRcloneConfigEdit(msg.Remote)
 
-	case rcloneui.ConfigEditFinishedMsg:
-		return m.handleRcloneConfigEdited(msg.Err)
-
-	// Bookmark messages
+		// Bookmark messages
 	case bookmarks.SelectMsg:
 		m.bookmarks = nil
 		if next, cmd, ok := m.openRcloneTarget(msg.Path); ok {
+			return next, cmd
+		}
+		if next, cmd, ok := m.openADBTarget(msg.Path); ok {
 			return next, cmd
 		}
 		if srv, remotePath, ok := m.openServerTarget(msg.Path); ok {
@@ -583,6 +651,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
+		if m.adbPicker != nil {
+			newADB, cmd := m.adbPicker.Update(msg)
+			m.adbPicker = &newADB
+			return m, cmd
+		}
+
+		if m.rcloneConfig != nil {
+			newConfig, cmd := m.rcloneConfig.Update(msg)
+			m.rcloneConfig = &newConfig
+			return m, cmd
+		}
+
 		if m.rclonePicker != nil {
 			newPicker, cmd := m.rclonePicker.Update(msg)
 			m.rclonePicker = &newPicker
@@ -742,6 +822,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keyMap.Rclone):
 			return m.startRcloneRemotes()
 
+		case key.Matches(msg, m.keyMap.ADB):
+			return m.startADBDevices()
+
 		case key.Matches(msg, m.keyMap.Bookmarks):
 			return m.startBookmarks()
 
@@ -833,6 +916,10 @@ func (m Model) View() string {
 		box := m.servers.View(m.theme, m.width, m.height)
 		bw, bh := m.servers.BoxSize(m.width, m.height)
 		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
+	} else if m.adbPicker != nil {
+		box := m.adbPicker.View(m.theme, m.width, m.height)
+		bw, bh := m.adbPicker.BoxSize(m.width, m.height)
+		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
 	} else if m.rclonePicker != nil {
 		box := m.rclonePicker.View(m.theme, m.width, m.height)
 		bw, bh := m.rclonePicker.BoxSize(m.width, m.height)
@@ -852,6 +939,11 @@ func (m Model) View() string {
 	} else if m.dialog != nil {
 		box := m.dialog.View(m.theme, m.width, m.height)
 		bw, bh := m.dialog.BoxSize(m.width, m.height)
+		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
+	}
+	if m.rcloneConfig != nil {
+		box := m.rcloneConfig.View(m.theme, m.width, m.height)
+		bw, bh := m.rcloneConfig.BoxSize(m.width, m.height)
 		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
 	}
 
@@ -1147,7 +1239,7 @@ func (m Model) startEdit() (tea.Model, tea.Cmd) {
 // it. Archives are excluded: there is no writable side to put an edit back.
 func (m Model) startStaged(edit bool) (tea.Model, tea.Cmd) {
 	p := m.activePanel()
-	if p.Location().Kind != vfs.KindSSH && p.Location().Kind != vfs.KindRclone {
+	if p.Location().Kind != vfs.KindSSH && p.Location().Kind != vfs.KindRclone && p.Location().Kind != vfs.KindADB {
 		return m, nil
 	}
 
@@ -1242,6 +1334,9 @@ func (m Model) handleDialogResult(result dialog.Result) (tea.Model, tea.Cmd) {
 	case tagGoTo:
 		if result.Confirmed && result.Text != "" {
 			if next, cmd, ok := m.openRcloneTarget(result.Text); ok {
+				return next, cmd
+			}
+			if next, cmd, ok := m.openADBTarget(result.Text); ok {
 				return next, cmd
 			}
 			if srv, remotePath, ok := m.openServerTarget(result.Text); ok {

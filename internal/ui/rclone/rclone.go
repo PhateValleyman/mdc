@@ -17,14 +17,14 @@ type DismissMsg struct{}
 
 type SelectMsg struct{ Remote string }
 
-type EditConfigRequestedMsg struct{}
+type CreateConfigRequestedMsg struct{}
+
+type EditConfigRequestedMsg struct{ Remote string }
 
 type RemotesLoadedMsg struct {
 	Remotes []string
 	Err     error
 }
-
-type ConfigEditFinishedMsg struct{ Err error }
 
 // LoadRemotesCmd asks rclone for remote names only. Configuration values are
 // never read into this process or included in the returned message.
@@ -99,8 +99,13 @@ func (m Model) Update(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.filtering = true
 		m.filter = ""
 		m.refilter()
+	case "a":
+		return m, func() tea.Msg { return CreateConfigRequestedMsg{} }
 	case "e":
-		return m, func() tea.Msg { return EditConfigRequestedMsg{} }
+		if !m.loading && m.cursor >= 0 && m.cursor < len(m.items) {
+			remote := m.items[m.cursor]
+			return m, func() tea.Msg { return EditConfigRequestedMsg{Remote: remote} }
+		}
 	default:
 		if len(msg.String()) == 1 && msg.String()[0] >= '0' && msg.String()[0] <= '9' {
 			idx := int(msg.String()[0] - '0')
@@ -229,7 +234,7 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 	} else if m.err != nil {
 		lines = append(lines, dim.Render(" "+m.err.Error()))
 	} else if len(m.items) == 0 {
-		lines = append(lines, dim.Render(" No remotes configured. Press 'e' to run rclone config edit."))
+		lines = append(lines, dim.Render(" No remotes configured. Press 'a' to add one in MDC."))
 	} else {
 		visible := m.resultHeight()
 		end := min(m.offset+visible, len(m.items))
@@ -247,7 +252,7 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 		}
 	}
 
-	footer := key.Render(" Enter") + dim.Render(":Open  ") + key.Render("e") + dim.Render(":Config edit  ") + key.Render("f") + dim.Render(":Filter  ") + key.Render("Esc") + dim.Render(":Close")
+	footer := key.Render(" Enter") + dim.Render(":Open  ") + key.Render("a") + dim.Render(":Add  ") + key.Render("e") + dim.Render(":Edit  ") + key.Render("f") + dim.Render(":Filter  ") + key.Render("Esc") + dim.Render(":Close")
 	if m.filtering {
 		footer = key.Render(" Enter") + dim.Render(":Open  ") + key.Render("Esc") + dim.Render(":Clear filter")
 	}

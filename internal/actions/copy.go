@@ -255,7 +255,7 @@ func countFilesAndBytes(refs []vfs.FileRef) (int, int64) {
 	var bytes int64
 
 	for _, ref := range refs {
-		if ref.Kind == vfs.KindSSH || ref.Kind == vfs.KindRclone {
+		if ref.Kind == vfs.KindSSH || ref.Kind == vfs.KindRclone || ref.Kind == vfs.KindADB {
 			return 0, 0
 		}
 	}

@@ -23,14 +23,27 @@ func TestSelectRemote(t *testing.T) {
 	}
 }
 
-func TestEditConfigUsesDedicatedRequest(t *testing.T) {
+func TestAddConfigUsesDedicatedRequest(t *testing.T) {
 	m := New(100, 30)
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	if cmd == nil {
+		t.Fatal("a should request the rclone config editor")
+	}
+	if _, ok := cmd().(CreateConfigRequestedMsg); !ok {
+		t.Fatal("a should emit CreateConfigRequestedMsg")
+	}
+}
+
+func TestEditRequestsCurrentRemote(t *testing.T) {
+	m := New(100, 30)
+	m.HandleRemotes(RemotesLoadedMsg{Remotes: []string{"backup"}})
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
 	if cmd == nil {
-		t.Fatal("e should request the rclone config editor")
+		t.Fatal("e should request editing the selected remote")
 	}
-	if _, ok := cmd().(EditConfigRequestedMsg); !ok {
-		t.Fatal("e should emit EditConfigRequestedMsg")
+	msg, ok := cmd().(EditConfigRequestedMsg)
+	if !ok || msg.Remote != "backup" {
+		t.Fatalf("edit request = %#v, want backup", msg)
 	}
 }
 

@@ -1,13 +1,12 @@
 package app
 
 import (
-	"fmt"
-	"os/exec"
-
 	tea "github.com/charmbracelet/bubbletea"
 
+	adbui "github.com/kooler/MiddayCommander/internal/ui/adb"
 	rcloneui "github.com/kooler/MiddayCommander/internal/ui/rclone"
 	"github.com/kooler/MiddayCommander/internal/vfs"
+	"github.com/kooler/MiddayCommander/internal/vfs/adbfs"
 	"github.com/kooler/MiddayCommander/internal/vfs/rclonefs"
 )
 
@@ -15,6 +14,18 @@ func (m Model) startRcloneRemotes() (tea.Model, tea.Cmd) {
 	picker := rcloneui.New(m.width, m.height)
 	m.rclonePicker = &picker
 	return m, rcloneui.LoadRemotesCmd()
+}
+
+func (m Model) startRcloneConfigCreate() (tea.Model, tea.Cmd) {
+	editor := rcloneui.NewConfigCreate(m.width, m.height)
+	m.rcloneConfig = &editor
+	return m, rcloneui.LoadConfigProvidersCmd()
+}
+
+func (m Model) startRcloneConfigEdit(remote string) (tea.Model, tea.Cmd) {
+	editor := rcloneui.NewConfigEdit(remote, m.width, m.height)
+	m.rcloneConfig = &editor
+	return m, rcloneui.StartConfigUpdateCmd(remote)
 }
 
 func (m Model) openRcloneTarget(raw string) (tea.Model, tea.Cmd, bool) {
@@ -47,20 +58,38 @@ func (m Model) openRcloneRemote(remoteName, remotePath string) (tea.Model, tea.C
 	return m, m.activePanel().LoadDir()
 }
 
-func (m Model) rcloneConfigEditCmd() tea.Cmd {
-	cmd := exec.Command("rclone", "config", "edit")
-	return tea.ExecProcess(cmd, func(err error) tea.Msg {
-		return rcloneui.ConfigEditFinishedMsg{Err: err}
-	})
+func (m Model) startADBDevices() (tea.Model, tea.Cmd) {
+	picker := adbui.New(m.width, m.height)
+	m.adbPicker = &picker
+	return m, adbui.LoadDevicesCmd()
 }
 
-func (m Model) handleRcloneConfigEdited(err error) (tea.Model, tea.Cmd) {
-	if err != nil {
-		m.rclonePicker = nil
-		return m.showError("rclone config edit", fmt.Errorf("%w", err))
+func (m Model) openADBTarget(raw string) (tea.Model, tea.Cmd, bool) {
+	serial, devicePath, ok := adbfs.ParseURL(raw)
+	if !ok {
+		return m, nil, false
 	}
-	if m.rclonePicker != nil {
-		m.rclonePicker.BeginRefresh()
+	next, cmd := m.openADBDevice(serial, devicePath)
+	return next, cmd, true
+}
+
+func (m Model) openADBDevice(serial, devicePath string) (tea.Model, tea.Cmd) {
+	fsys := m.adbFileSystems[serial]
+	if fsys == nil {
+		var err error
+		fsys, err = adbfs.New(serial)
+		if err != nil {
+			return m.showError("Invalid adb device", err)
+		}
+		if m.adbFileSystems == nil {
+			m.adbFileSystems = make(map[string]*adbfs.FS)
+		}
+		m.adbFileSystems[serial] = fsys
 	}
-	return m, tea.Batch(rcloneui.LoadRemotesCmd(), m.refreshBothPanels())
+	if devicePath == "" || devicePath == "/" {
+		devicePath = "/sdcard"
+	}
+	m.activePanel().SetLocation(vfs.NewLocation(fsys, devicePath, vfs.KindADB, fsys.Label()))
+	m.releaseUnusedConnections()
+	return m, m.activePanel().LoadDir()
 }

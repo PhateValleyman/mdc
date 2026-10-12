@@ -30,3 +30,11 @@ func TestPrintableInput(t *testing.T) {
 		})
 	}
 }
+
+func TestSafeTerminalTextReplacesControlCharacters(t *testing.T) {
+	input := "safe\x1b[31mred\x1b[0m\tline\n"
+	want := "safe�[31mred�[0m�line�"
+	if got := SafeTerminalText(input); got != want {
+		t.Fatalf("SafeTerminalText() = %q, want %q", got, want)
+	}
+}

@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/kooler/MiddayCommander/internal/ui/overlay"
+	uitext "github.com/kooler/MiddayCommander/internal/ui/text"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 	"github.com/kooler/MiddayCommander/internal/vfs/rclonefs"
 )
@@ -409,7 +410,7 @@ func (m ConfigEditorModel) View(th theme.Theme, screenWidth, screenHeight int) s
 		if m.loading {
 			lines = append(lines, dim.Render(" Loading rclone providers…"))
 		} else if m.err != "" {
-			lines = append(lines, dim.Render(" "+m.err))
+			lines = append(lines, dim.Render(" "+uitext.SafeTerminalText(m.err)))
 		} else if len(m.items) == 0 {
 			lines = append(lines, dim.Render(" No rclone providers found."))
 		} else {
@@ -421,9 +422,9 @@ func (m ConfigEditorModel) View(th theme.Theme, screenWidth, screenHeight int) s
 				if i < 10 {
 					prefix = fmt.Sprintf("%d ", i)
 				}
-				label := p.Name
+				label := uitext.SafeTerminalText(p.Name)
 				if p.Description != "" {
-					label += " — " + p.Description
+					label += " — " + uitext.SafeTerminalText(p.Description)
 				}
 				if i == m.cursor {
 					lines = append(lines, selected.Render(pad(prefix+label, innerW)))
@@ -433,36 +434,36 @@ func (m ConfigEditorModel) View(th theme.Theme, screenWidth, screenHeight int) s
 			}
 		}
 	case configModeName:
-		lines = append(lines, key.Render(" Provider: ")+base.Render(m.provider))
+		lines = append(lines, key.Render(" Provider: ")+base.Render(uitext.SafeTerminalText(m.provider)))
 		lines = append(lines, dim.Render(" Enter a name for the new rclone remote."))
-		lines = append(lines, base.Render(" Name: "+m.remote+"_"))
+		lines = append(lines, base.Render(" Name: "+uitext.SafeTerminalText(m.remote)+"_"))
 		if m.err != "" {
-			lines = append(lines, dim.Render(" "+m.err))
+			lines = append(lines, dim.Render(" "+uitext.SafeTerminalText(m.err)))
 		}
 	case configModeLoading:
 		lines = append(lines, dim.Render(" Working with rclone configuration…"))
 	case configModeQuestion:
 		if option := m.question.Option; option != nil {
-			lines = append(lines, key.Render(" "+m.remote+" · "+option.Name))
-			lines = append(lines, wrapText(option.Help, innerW-2)...)
+			lines = append(lines, key.Render(" "+uitext.SafeTerminalText(m.remote)+" · "+uitext.SafeTerminalText(option.Name)))
+			lines = append(lines, wrapText(uitext.SafeTerminalText(option.Help), innerW-2)...)
 			if option.Required {
 				lines = append(lines, dim.Render(" Required"))
 			}
 			if option.Exclusive && len(option.Examples) > 0 {
 				for _, example := range option.Examples {
-					value := valueString(example.Value)
+					value := uitext.SafeTerminalText(valueString(example.Value))
 					prefix := "  "
 					if value == m.answer {
 						prefix = "> "
 					}
 					label := value
 					if example.Help != "" {
-						label += " — " + example.Help
+						label += " — " + uitext.SafeTerminalText(example.Help)
 					}
 					lines = append(lines, key.Render(prefix)+base.Render(label))
 				}
 			} else {
-				shown := m.answer
+				shown := uitext.SafeTerminalText(m.answer)
 				if option.IsPassword || option.Sensitive {
 					shown = strings.Repeat("•", utf8.RuneCountInString(m.answer))
 				}
@@ -476,10 +477,10 @@ func (m ConfigEditorModel) View(th theme.Theme, screenWidth, screenHeight int) s
 				}
 			}
 			if m.err != "" {
-				lines = append(lines, dim.Render(" "+m.err))
+				lines = append(lines, dim.Render(" "+uitext.SafeTerminalText(m.err)))
 			}
 		} else if m.err != "" {
-			lines = append(lines, dim.Render(" "+m.err))
+			lines = append(lines, dim.Render(" "+uitext.SafeTerminalText(m.err)))
 		}
 	}
 

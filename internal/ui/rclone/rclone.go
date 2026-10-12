@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/kooler/MiddayCommander/internal/ui/overlay"
+	uitext "github.com/kooler/MiddayCommander/internal/ui/text"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 	"github.com/kooler/MiddayCommander/internal/vfs/rclonefs"
 )
@@ -144,7 +145,7 @@ func (m Model) updateFilter(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 	case "backspace":
 		if len(m.filter) > 0 {
-			m.filter = m.filter[:len(m.filter)-1]
+			m.filter = dropLastRune(m.filter)
 			m.refilter()
 		} else {
 			m.filtering = false
@@ -244,7 +245,7 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 	if m.loading {
 		lines = append(lines, dim.Render(" Loading rclone remotes…"))
 	} else if m.err != nil {
-		lines = append(lines, dim.Render(" "+m.err.Error()))
+		lines = append(lines, dim.Render(" "+uitext.SafeTerminalText(m.err.Error())))
 	} else if len(m.items) == 0 {
 		lines = append(lines, dim.Render(" No remotes configured. Press 'a' to add one in MDC."))
 	} else {
@@ -255,11 +256,12 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 			if i < 10 {
 				prefix = fmt.Sprintf("%d ", i)
 			}
-			text := prefix + m.items[i]
+			label := uitext.SafeTerminalText(m.items[i])
+			text := prefix + label
 			if i == m.cursor {
 				lines = append(lines, selected.Render(pad(text, innerW)))
 			} else {
-				lines = append(lines, key.Render(prefix)+base.Render(pad(m.items[i], innerW-len(prefix))))
+				lines = append(lines, key.Render(prefix)+base.Render(pad(label, innerW-len(prefix))))
 			}
 		}
 	}

@@ -18,8 +18,10 @@
 - Use rclone's own configuration/authentication commands and token storage; never implement provider-specific OAuth token handling inside MDC unless there is a compelling documented reason.
 - Keep key hints in overlays synchronized with actual key handling and README documentation.
 - Preserve dual-panel navigation and existing MC-style function-key behavior.
+- Pass filesystem-, provider-, and device-derived labels through `internal/ui/text.SafeTerminalText` before terminal rendering; keep stored paths and values unchanged for operations.
 
 ## Compatibility and security
 - Avoid new runtime dependencies unless justified.
 - Preserve the ARMv5/uClibc ZyXEL build target and Windows/macOS/Linux support.
+- Keep ADB directory metadata lookups bounded; do not fan out unbounded device subprocesses.
 - Never commit credentials, access tokens, personal config files, generated binaries, or temporary test data.

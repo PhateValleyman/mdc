@@ -10,6 +10,7 @@ import (
 	"github.com/muesli/termenv"
 
 	"github.com/kooler/MiddayCommander/internal/ui/overlay"
+	uitext "github.com/kooler/MiddayCommander/internal/ui/text"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 )
 
@@ -32,7 +33,7 @@ func (m Model) View(th theme.Theme) string {
 		innerWidth = 0
 	}
 
-	header := m.Location().Display()
+	header := uitext.SafeTerminalText(m.Location().Display())
 	if ansi.StringWidth(header) > innerWidth-4 {
 		header = overlay.TruncateLeftEllipsis(header, innerWidth-4)
 	}
@@ -101,7 +102,7 @@ func (m Model) renderRow(idx, width int, th theme.Theme) string {
 	entry := m.entries[idx]
 	info := m.infos[idx]
 
-	name := entry.Name()
+	name := uitext.SafeTerminalText(entry.Name())
 	isDir := IsDirLike(&m, entry)
 	isCursor := idx == m.cursor && m.active
 	isSelected := m.selected[idx]

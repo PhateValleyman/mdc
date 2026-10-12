@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/kooler/MiddayCommander/internal/ui/overlay"
+	uitext "github.com/kooler/MiddayCommander/internal/ui/text"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 	"github.com/kooler/MiddayCommander/internal/vfs/adbfs"
 )
@@ -302,7 +303,7 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 		if m.connectLoading {
 			lines = append(lines, dim.Render(" Connecting and refreshing devices…"))
 		} else if m.err != nil {
-			lines = append(lines, dim.Render(" "+m.err.Error()))
+			lines = append(lines, dim.Render(" "+uitext.SafeTerminalText(m.err.Error())))
 		}
 	} else {
 		if m.filtering {
@@ -315,7 +316,7 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 			lines = append(lines, dim.Render(" Scanning adb devices…"))
 		} else {
 			if m.err != nil {
-				lines = append(lines, dim.Render(" "+m.err.Error()))
+				lines = append(lines, dim.Render(" "+uitext.SafeTerminalText(m.err.Error())))
 			}
 			if len(m.items) == 0 && m.err == nil {
 				lines = append(lines, dim.Render(" No adb devices found. Press 'c' to connect one or 'r' to refresh."))
@@ -341,6 +342,7 @@ func (m Model) View(_ theme.Theme, screenWidth, screenHeight int) string {
 					if d.State != "device" {
 						label += "  [" + d.State + "]"
 					}
+					label = uitext.SafeTerminalText(label)
 					text := prefix + label
 					if i == m.cursor {
 						lines = append(lines, selected.Render(pad(text, innerW)))

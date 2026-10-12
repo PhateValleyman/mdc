@@ -124,4 +124,20 @@ func TestUpdatePreservesUnchangedSensitiveValue(t *testing.T) {
 	_ = os.Remove(configPath)
 }
 
+func TestExistingRemoteNameCannotEmitTerminalControlSequence(t *testing.T) {
+	const maliciousRemote = "backup\x1b]52;c;payload\a"
+	m := NewConfigEdit(maliciousRemote, 100, 30)
+	m.HandleQuestion(ConfigQuestionMsg{
+		Remote: maliciousRemote,
+		Question: rclonefs.ConfigQuestion{
+			State:  "state",
+			Option: &rclonefs.ConfigOption{Name: "token", Help: "Token value"},
+		},
+	})
+	view := m.View(themeForTest(), 100, 30)
+	if strings.Contains(view, "\x1b]52;") || strings.ContainsRune(view, '\a') {
+		t.Fatal("rclone remote name emitted a terminal control sequence")
+	}
+}
+
 func themeForTest() theme.Theme { return theme.Theme{} }

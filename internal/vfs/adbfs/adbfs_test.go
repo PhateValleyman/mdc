@@ -71,7 +71,7 @@ func TestStatAndReadDir(t *testing.T) {
 	binary := fakeADB(t, `
 if [ "$3" = "shell" ]; then
   case "$4" in
-    ls*) printf 'notes.txt\n' ;;
+	    ls*) printf 'notes.txt\nsecond.txt\nthird.txt\n' ;;
     stat*) printf 'regular file\t12\t1700000000\t644\n' ;;
     *) exit 2 ;;
   esac
@@ -83,7 +83,7 @@ fi`)
 		t.Fatal(err)
 	}
 	entries, err := fsys.ReadDir("/sdcard")
-	if err != nil || len(entries) != 1 || entries[0].Name() != "notes.txt" {
+	if err != nil || len(entries) != 3 || entries[0].Name() != "notes.txt" || entries[2].Name() != "third.txt" {
 		t.Fatalf("ReadDir = %#v, %v", entries, err)
 	}
 	info, err := entries[0].Info()

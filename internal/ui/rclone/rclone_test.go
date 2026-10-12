@@ -1,9 +1,11 @@
 package rclone
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/kooler/MiddayCommander/internal/ui/theme"
 )
 
 func TestSelectRemote(t *testing.T) {
@@ -70,5 +72,31 @@ func TestFilterRemotes(t *testing.T) {
 	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d', 'r'}})
 	if len(m.items) != 2 || m.items[0] != "drive" || m.items[1] != "drive-archive" {
 		t.Fatalf("filtered remotes = %#v", m.items)
+	}
+}
+
+func TestFilterBackspaceRemovesWholeUnicodeRune(t *testing.T) {
+	m := New(100, 30)
+	m.HandleRemotes(RemotesLoadedMsg{Remotes: []string{"café"}})
+	m.filtering = true
+	m.filter = "café"
+	m.refilter()
+
+	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	if m.filter != "caf" {
+		t.Fatalf("filter after backspace = %q, want %q", m.filter, "caf")
+	}
+	if len(m.items) != 1 || m.items[0] != "café" {
+		t.Fatalf("filtered remotes = %#v, want café", m.items)
+	}
+}
+
+func TestRemoteNameCannotEmitTerminalControlSequence(t *testing.T) {
+	const maliciousRemote = "backup\x1b]52;c;payload\a"
+	m := New(100, 30)
+	m.HandleRemotes(RemotesLoadedMsg{Remotes: []string{"first", maliciousRemote}})
+	view := m.View(theme.Theme{}, 100, 30)
+	if strings.Contains(view, "\x1b]52;") || strings.ContainsRune(view, '\a') {
+		t.Fatal("rclone remote metadata emitted a terminal control sequence")
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kooler/MiddayCommander/internal/vfs"
@@ -194,18 +195,56 @@ func (f *FS) ReadDir(name string) ([]fs.DirEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	var entries []fs.DirEntry
+	var names []string
 	for _, name := range strings.Split(strings.TrimSuffix(string(output), "\n"), "\n") {
 		name = strings.TrimSuffix(name, "\r")
 		if name == "" || name == "." || name == ".." {
 			continue
 		}
-		child := path.Join(p, name)
-		info, err := f.Stat(child)
-		if err != nil {
-			return nil, err
-		}
-		entries = append(entries, dirEntry{info: info})
+		names = append(names, name)
+	}
+	if len(names) == 0 {
+		return []fs.DirEntry{}, nil
+	}
+
+	// Each Stat starts a separate adb process. A small fixed worker pool avoids
+	// serial startup latency on directories with many entries without flooding adb.
+	const maxConcurrentStats = 4
+	workers := len(names)
+	if workers > maxConcurrentStats {
+		workers = maxConcurrentStats
+	}
+	indices := make(chan int)
+	entries := make([]fs.DirEntry, len(names))
+	var wg sync.WaitGroup
+	var errMu sync.Mutex
+	var firstErr error
+	for worker := 0; worker < workers; worker++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range indices {
+				child := path.Join(p, names[i])
+				info, statErr := f.Stat(child)
+				if statErr != nil {
+					errMu.Lock()
+					if firstErr == nil {
+						firstErr = statErr
+					}
+					errMu.Unlock()
+					continue
+				}
+				entries[i] = dirEntry{info: info}
+			}
+		}()
+	}
+	for i := range names {
+		indices <- i
+	}
+	close(indices)
+	wg.Wait()
+	if firstErr != nil {
+		return nil, firstErr
 	}
 	return entries, nil
 }

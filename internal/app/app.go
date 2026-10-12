@@ -404,7 +404,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case rcloneui.ReconnectRequestedMsg:
 		// Suspend the TUI so rclone can run its interactive browser-based OAuth flow.
-		m.rclonePicker = nil
+		// Keep the picker alive so it can refresh when rclone returns.
 		cmd := exec.Command("rclone", "config", "reconnect", msg.Remote+":")
 		return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
 			return rcloneui.ReconnectDoneMsg{Remote: msg.Remote, Err: err}

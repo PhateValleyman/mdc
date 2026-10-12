@@ -47,6 +47,19 @@ func TestEditRequestsCurrentRemote(t *testing.T) {
 	}
 }
 
+func TestOAuthReconnectRequestsCurrentRemote(t *testing.T) {
+	m := New(100, 30)
+	m.HandleRemotes(RemotesLoadedMsg{Remotes: []string{"backup", "drive"}})
+	m, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	if cmd == nil {
+		t.Fatal("o should request browser-based OAuth reconnect")
+	}
+	msg, ok := cmd().(ReconnectRequestedMsg)
+	if !ok || msg.Remote != "backup" {
+		t.Fatalf("reconnect request = %#v, want remote backup", msg)
+	}
+}
+
 func TestFilterRemotes(t *testing.T) {
 	m := New(100, 30)
 	m.HandleRemotes(RemotesLoadedMsg{Remotes: []string{"backup", "drive", "drive-archive"}})

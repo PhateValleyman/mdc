@@ -87,7 +87,6 @@ type Model struct {
 	servers      *servers.Model
 	adbPicker    *adbui.Model
 	rclonePicker *rcloneui.Model
-	rcloneConfig *rcloneui.ConfigEditorModel
 	help         *help.Model
 	themePicker  *themepicker.Model
 	cmdExec      *cmdexec.Model
@@ -261,9 +260,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.adbPicker != nil {
 			m.adbPicker.SetSize(msg.Width, msg.Height)
 		}
-		if m.rcloneConfig != nil {
-			m.rcloneConfig.SetSize(msg.Width, msg.Height)
-		}
 		m.recalcLayout()
 		return m, nil
 
@@ -355,39 +351,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.adbPicker = nil
 		return m.openADBDevice(msg.Device.Serial, "/sdcard")
 
-	case rcloneui.ConfigProvidersLoadedMsg:
-		if m.rcloneConfig != nil {
-			m.rcloneConfig.HandleProviders(msg)
-		}
-		return m, nil
-
-	case rcloneui.ConfigQuestionMsg:
-		if m.rcloneConfig != nil && m.rcloneConfig.HandleQuestion(msg) {
-			m.rcloneConfig = nil
-			if m.rclonePicker != nil {
-				m.rclonePicker.BeginRefresh()
-			}
-			return m, tea.Batch(rcloneui.LoadRemotesCmd(), m.refreshBothPanels())
-		}
-		return m, nil
-
-	case rcloneui.ConfigCancelMsg:
-		m.rcloneConfig = nil
-		return m, rcloneui.CancelConfigCmd(msg.Remote, msg.DeleteRemote)
-
-	case rcloneui.ConfigEditorDismissMsg:
-		m.rcloneConfig = nil
-		return m, nil
-
-	case rcloneui.ConfigCancelledMsg:
-		if msg.Err != nil {
-			return m.showError("Could not discard rclone remote", msg.Err)
-		}
-		if m.rclonePicker != nil {
-			m.rclonePicker.BeginRefresh()
-		}
-		return m, tea.Batch(rcloneui.LoadRemotesCmd(), m.refreshBothPanels())
-
 	case rcloneui.DismissMsg:
 		m.rclonePicker = nil
 		return m, nil
@@ -397,10 +360,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.openRcloneRemote(msg.Remote, "/")
 
 	case rcloneui.CreateConfigRequestedMsg:
-		return m.startRcloneConfigCreate()
+		return m.startRcloneConfig()
 
 	case rcloneui.EditConfigRequestedMsg:
-		return m.startRcloneConfigEdit(msg.Remote)
+		return m.startRcloneConfig()
+
+	case rcloneui.ConfigCommandDoneMsg:
+		if m.rclonePicker != nil {
+			m.rclonePicker.BeginRefresh()
+		}
+		return m, tea.Batch(rcloneui.LoadRemotesCmd(), m.refreshBothPanels())
 
 	case rcloneui.ReconnectRequestedMsg:
 		// Suspend the TUI so rclone can run its interactive browser-based OAuth flow.
@@ -672,12 +641,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.adbPicker != nil {
 			newADB, cmd := m.adbPicker.Update(msg)
 			m.adbPicker = &newADB
-			return m, cmd
-		}
-
-		if m.rcloneConfig != nil {
-			newConfig, cmd := m.rcloneConfig.Update(msg)
-			m.rcloneConfig = &newConfig
 			return m, cmd
 		}
 
@@ -959,12 +922,6 @@ func (m Model) View() string {
 		bw, bh := m.dialog.BoxSize(m.width, m.height)
 		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
 	}
-	if m.rcloneConfig != nil {
-		box := m.rcloneConfig.View(m.theme, m.width, m.height)
-		bw, bh := m.rcloneConfig.BoxSize(m.width, m.height)
-		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
-	}
-
 	return screen
 }
 

@@ -22,6 +22,8 @@ type CreateConfigRequestedMsg struct{}
 
 type EditConfigRequestedMsg struct{ Remote string }
 
+type ConfigCommandDoneMsg struct{}
+
 type ReconnectRequestedMsg struct{ Remote string }
 
 type ReconnectDoneMsg struct {

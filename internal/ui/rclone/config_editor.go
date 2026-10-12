@@ -1,6 +1,7 @@
 package rclone
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"unicode/utf8"
@@ -59,10 +60,12 @@ func StartConfigCreateCmd(remote, provider string) tea.Cmd {
 	}
 }
 
-func ContinueConfigCmd(remote, provider string, creating bool, state, answer string) tea.Cmd {
+func RejectConfigAnswerCmd(remote string) tea.Cmd {
 	return func() tea.Msg {
-		question, err := rclonefs.ContinueConfig(remote, provider, creating, state, answer)
-		return ConfigQuestionMsg{Remote: remote, Provider: provider, Creating: creating, Question: question, Done: err == nil && question.State == "" && question.Error == "", Err: err}
+		return ConfigQuestionMsg{
+			Remote: remote,
+			Err:    errors.New("configuration answers must be entered through native `rclone config`"),
+		}
 	}
 }
 
@@ -83,8 +86,9 @@ const (
 	configModeQuestion
 )
 
-// ConfigEditorModel is the in-MDC frontend to rclone's non-interactive config
-// protocol. Secret values are held only as form state and are never rendered.
+// ConfigEditorModel is a legacy renderer retained for configuration-option
+// display tests. The root app does not mount it; real create/edit sessions run
+// entirely through rclone's native terminal wizard so answers never enter argv.
 type ConfigEditorModel struct {
 	mode          int
 	providers     []rclonefs.Provider
@@ -305,7 +309,7 @@ func (m ConfigEditorModel) updateQuestion(msg tea.KeyMsg) (ConfigEditorModel, te
 		}
 		m.mode = configModeLoading
 		m.err = ""
-		return m, ContinueConfigCmd(m.remote, m.provider, m.creating, m.state, m.answer)
+		return m, RejectConfigAnswerCmd(m.remote)
 	case "backspace":
 		if !(option.Exclusive && len(option.Examples) > 0) {
 			m.answer = dropLastRune(m.answer)
@@ -445,11 +449,22 @@ func (m ConfigEditorModel) View(th theme.Theme, screenWidth, screenHeight int) s
 	case configModeQuestion:
 		if option := m.question.Option; option != nil {
 			lines = append(lines, key.Render(" "+uitext.SafeTerminalText(m.remote)+" · "+uitext.SafeTerminalText(option.Name)))
-			lines = append(lines, wrapText(uitext.SafeTerminalText(option.Help), innerW-2)...)
+			sensitive := option.IsPassword || option.Sensitive
+			if !sensitive {
+				lines = append(lines, wrapText(uitext.SafeTerminalText(option.Help), innerW-2)...)
+			}
 			if option.Required {
 				lines = append(lines, dim.Render(" Required"))
 			}
-			if option.Exclusive && len(option.Examples) > 0 {
+			if sensitive {
+				shown := strings.Repeat("•", utf8.RuneCountInString(m.answer))
+				lines = append(lines, key.Render(" Value: ")+base.Render(shown+"_"))
+				if m.answer != "" {
+					lines = append(lines, dim.Render(" Enter keeps the stored secret; Ctrl+U clears it for replacement."))
+				} else {
+					lines = append(lines, dim.Render(" Enter the new secret; use Ctrl+U to clear the field."))
+				}
+			} else if option.Exclusive && len(option.Examples) > 0 {
 				for _, example := range option.Examples {
 					value := uitext.SafeTerminalText(valueString(example.Value))
 					prefix := "  "
@@ -464,17 +479,7 @@ func (m ConfigEditorModel) View(th theme.Theme, screenWidth, screenHeight int) s
 				}
 			} else {
 				shown := uitext.SafeTerminalText(m.answer)
-				if option.IsPassword || option.Sensitive {
-					shown = strings.Repeat("•", utf8.RuneCountInString(m.answer))
-				}
 				lines = append(lines, key.Render(" Value: ")+base.Render(shown+"_"))
-				if option.IsPassword || option.Sensitive {
-					if m.answer != "" {
-						lines = append(lines, dim.Render(" Enter keeps the stored secret; Ctrl+U clears it for replacement."))
-					} else {
-						lines = append(lines, dim.Render(" Enter the new secret; use Ctrl+U to clear the field."))
-					}
-				}
 			}
 			if m.err != "" {
 				lines = append(lines, dim.Render(" "+uitext.SafeTerminalText(m.err)))

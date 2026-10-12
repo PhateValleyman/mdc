@@ -99,14 +99,18 @@ sudo mv mdc /usr/local/bin/
 
 #### ZyXEL NSA320 (FFP)
 
-With Go 1.19 installed on the NAS or on another machine, build a static Linux
-ARMv5 soft-float binary with:
+Cross-compile a static Linux ARMv5 soft-float binary from a supported host with:
 
 ```bash
 make build-zyxel
 ```
 
-This writes `./mdc`, suitable for the NSA320's ARMv5/uClibc environment.
+This confirms only an ELF Linux/ARMv5 soft-float build; it does not establish
+runtime compatibility with the NSA320 or FFP. Go 1.19–1.23 requires Linux/ARM
+kernel 3.1 or later; Go 1.24+ requires kernel 3.2 or later. The NSA320's reported kernel is 2.6.31.8,
+below both minimums. `GOARM=5` and static linking do not bypass the kernel
+requirement. No runtime test on FFP has been performed, so do not assume the
+artifact is deployable to the NSA320.
 
 ### Build targets
 
@@ -245,7 +249,7 @@ ssh://user@host:2222/srv/app
 
 ### rclone remotes
 
-Install `rclone` and press `Shift+R` to browse remotes from the active panel. Use `Enter` to open one, `f` to filter, `a` to add a remote, and `e` to edit the selected remote. Adding and editing use MDC windows rather than rclone's terminal wizard; provider questions are shown in the app, and password/sensitive fields are masked. Rclone saves the configuration using its usual config file and credential handling. Press `o` on a configured remote to run `rclone config reconnect` in the terminal. This suspends MDC while rclone completes its native browser-based OAuth flow (including the local callback server when required), then returns to the file manager and refreshes the remote list and panels. OAuth tokens remain managed by rclone; MDC does not read or store them.
+Install `rclone` and press `Shift+R` to browse remotes from the active panel. Use `Enter` to open one, `f` to filter, `a` to add a remote, and `e` to edit a remote. Both keys suspend MDC and launch rclone's complete native `rclone config` terminal wizard; select the create/edit action and target remote in rclone's menu. Questions and secrets stay in rclone rather than being passed by MDC as process arguments. After the wizard exits, MDC refreshes the remote list and both panels. Press `o` on a configured remote to run `rclone config reconnect` in the terminal. This suspends MDC while rclone completes its native browser-based OAuth flow (including the local callback server when required), then returns to the file manager and refreshes the remote list and panels. OAuth tokens remain managed by rclone; MDC does not read or store them.
 
 Rclone panels support normal navigation and file operations, including copy (`F5`), move (`F6`), create directory (`F7`), delete (`F8`), and rename (`Shift-F6`). Single-file viewing and editing (`F3`/`F4`) use a temporary local staging copy and upload edits back to the remote. You can also open a remote path from `Ctrl-G` or a bookmark using `rclone://remote/path`, for example `rclone://drive/backups`.
 

@@ -101,29 +101,6 @@ func startConfigUpdate(binary, name string) (ConfigQuestion, error) {
 	return runQuestion(binary, "update", name, "--all", "--non-interactive")
 }
 
-// ContinueConfig answers one guided question. Password answers are passed only
-// to rclone's documented --result protocol; output and stderr are never logged.
-func ContinueConfig(name, provider string, creating bool, state, answer string) (ConfigQuestion, error) {
-	return continueConfig(defaultBinary, name, provider, creating, state, answer)
-}
-
-func continueConfig(binary, name, provider string, creating bool, state, answer string) (ConfigQuestion, error) {
-	if !validRemoteName(name) || state == "" {
-		return ConfigQuestion{}, fmt.Errorf("invalid rclone configuration state")
-	}
-	operation := "update"
-	args := []string{"config", operation, name}
-	if creating {
-		if strings.TrimSpace(provider) == "" || strings.ContainsAny(provider, " \t\r\n") {
-			return ConfigQuestion{}, fmt.Errorf("invalid rclone provider")
-		}
-		operation = "create"
-		args = []string{"config", operation, name, provider}
-	}
-	args = append(args, "--continue", "--state", state, "--result", answer, "--all", "--non-interactive")
-	return runQuestionArgs(binary, args...)
-}
-
 // DeleteConfig removes a remote created by a config flow that the user cancelled.
 func DeleteConfig(name string) error { return deleteConfig(defaultBinary, name) }
 
@@ -162,8 +139,7 @@ func run(binary string, args ...string) ([]byte, error) {
 	cmd.Stderr = io.Discard
 	output, err := cmd.Output()
 	if err != nil {
-		// The arguments can contain credential answers from --result. Never
-		// include them in an error, log, or UI message.
+		// Do not expose raw rclone diagnostics, which may contain backend details.
 		return nil, commandError("config", err)
 	}
 	return output, nil

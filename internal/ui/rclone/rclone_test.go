@@ -29,7 +29,7 @@ func TestAddConfigUsesDedicatedRequest(t *testing.T) {
 	m := New(100, 30)
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
 	if cmd == nil {
-		t.Fatal("a should request the rclone config editor")
+		t.Fatal("a should request the native rclone config command")
 	}
 	if _, ok := cmd().(CreateConfigRequestedMsg); !ok {
 		t.Fatal("a should emit CreateConfigRequestedMsg")

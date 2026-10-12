@@ -15,7 +15,7 @@
 ## UI and remote integrations
 - Keep slow network/process work outside Bubble Tea's update/render loop.
 - For interactive external CLI workflows, suspend the TUI using Bubble Tea's process execution support rather than trying to embed another terminal prompt in an overlay.
-- Use rclone's own configuration/authentication commands and token storage; never implement provider-specific OAuth token handling inside MDC unless there is a compelling documented reason.
+- Use rclone's native terminal configuration/authentication commands and token storage; never pass configuration answers or secrets in process arguments or invent a stdin substitute for rclone's interactive flow. Never implement provider-specific OAuth token handling inside MDC unless there is a compelling documented reason.
 - Keep key hints in overlays synchronized with actual key handling and README documentation.
 - Preserve dual-panel navigation and existing MC-style function-key behavior.
 - Pass filesystem-, provider-, and device-derived labels through `internal/ui/text.SafeTerminalText` before terminal rendering; keep stored paths and values unchanged for operations.

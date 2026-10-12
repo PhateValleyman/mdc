@@ -1,6 +1,8 @@
 package app
 
 import (
+	"os/exec"
+
 	tea "github.com/charmbracelet/bubbletea"
 
 	adbui "github.com/kooler/MiddayCommander/internal/ui/adb"
@@ -16,16 +18,15 @@ func (m Model) startRcloneRemotes() (tea.Model, tea.Cmd) {
 	return m, rcloneui.LoadRemotesCmd()
 }
 
-func (m Model) startRcloneConfigCreate() (tea.Model, tea.Cmd) {
-	editor := rcloneui.NewConfigCreate(m.width, m.height)
-	m.rcloneConfig = &editor
-	return m, rcloneui.LoadConfigProvidersCmd()
+func rcloneConfigCommand() *exec.Cmd {
+	return exec.Command("rclone", "config")
 }
 
-func (m Model) startRcloneConfigEdit(remote string) (tea.Model, tea.Cmd) {
-	editor := rcloneui.NewConfigEdit(remote, m.width, m.height)
-	m.rcloneConfig = &editor
-	return m, rcloneui.StartConfigUpdateCmd(remote)
+func (m Model) startRcloneConfig() (tea.Model, tea.Cmd) {
+	cmd := rcloneConfigCommand()
+	return m, tea.ExecProcess(cmd, func(_ error) tea.Msg {
+		return rcloneui.ConfigCommandDoneMsg{}
+	})
 }
 
 func (m Model) openRcloneTarget(raw string) (tea.Model, tea.Cmd, bool) {

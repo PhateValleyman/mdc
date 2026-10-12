@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/kooler/MiddayCommander/internal/ui/bookmarks"
 	"github.com/kooler/MiddayCommander/internal/ui/dialog"
 	"github.com/kooler/MiddayCommander/internal/ui/panel"
+	rcloneui "github.com/kooler/MiddayCommander/internal/ui/rclone"
 	"github.com/kooler/MiddayCommander/internal/ui/servers"
 	"github.com/kooler/MiddayCommander/internal/vfs"
 )
@@ -634,6 +636,36 @@ func TestRcloneShortcutOpensRemotePicker(t *testing.T) {
 	}
 	if cmd == nil {
 		t.Fatal("opening the rclone picker should load remote names")
+	}
+}
+
+func TestRcloneCreateAndEditUseNativeConfigCommand(t *testing.T) {
+	command := rcloneConfigCommand()
+	if !reflect.DeepEqual(command.Args, []string{"rclone", "config"}) {
+		t.Fatalf("native config command = %#v, want rclone config", command.Args)
+	}
+
+	for _, request := range []tea.Msg{rcloneui.CreateConfigRequestedMsg{}, rcloneui.EditConfigRequestedMsg{Remote: "synthetic"}} {
+		m := newModel(t)
+		if _, cmd := run(t, m, request); cmd == nil {
+			t.Fatalf("request %T did not start a terminal-suspending process", request)
+		}
+	}
+}
+
+func TestRcloneConfigCompletionRefreshesRemotePickerAndPanels(t *testing.T) {
+	isolate(t)
+	m := newModel(t)
+	picker := rcloneui.New(100, 30)
+	picker.HandleRemotes(rcloneui.RemotesLoadedMsg{Remotes: []string{"old"}})
+	m.rclonePicker = &picker
+
+	updated, cmd := run(t, m, rcloneui.ConfigCommandDoneMsg{})
+	if updated.rclonePicker == nil || !strings.Contains(updated.rclonePicker.View(updated.theme, 100, 30), "Loading rclone remotes") {
+		t.Fatal("native config completion should refresh the remote picker")
+	}
+	if cmd == nil {
+		t.Fatal("native config completion should refresh remotes and panels")
 	}
 }
 

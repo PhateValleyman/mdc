@@ -2,9 +2,6 @@ package rclone
 
 import (
 	"errors"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -38,6 +35,10 @@ func TestPasswordAnswerIsNeverRendered(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("Enter should continue the config wizard")
 	}
+	msg, ok := cmd().(ConfigQuestionMsg)
+	if !ok || msg.Err == nil || !strings.Contains(msg.Err.Error(), "native `rclone config`") {
+		t.Fatalf("continuation = %#v; secret answers must use native rclone config", msg)
+	}
 }
 
 func TestCreateConfigFlowSelectsProviderAndRequestsName(t *testing.T) {
@@ -68,62 +69,6 @@ func TestFailedCreateDoesNotDeleteExistingRemote(t *testing.T) {
 	}
 }
 
-func TestUpdatePreservesUnchangedSensitiveValue(t *testing.T) {
-	if _, err := exec.LookPath("rclone"); err != nil {
-		t.Skip("rclone is not installed")
-	}
-	configPath := filepath.Join(t.TempDir(), "rclone.conf")
-	t.Setenv("RCLONE_CONFIG", configPath)
-	create := exec.Command("rclone", "config", "create", "mdc-editor-secret-check", "crypt", "remote=local:/tmp", "password=not-a-real-secret", "--non-interactive")
-	create.Stderr = nil
-	if output, err := create.Output(); err != nil {
-		t.Fatalf("create synthetic crypt fixture: status=%v output=%s", err, output)
-	}
-
-	showPassword := func() string {
-		t.Helper()
-		cmd := exec.Command("rclone", "config", "show", "mdc-editor-secret-check")
-		output, err := cmd.Output()
-		if err != nil {
-			t.Fatalf("read synthetic config: %v", err)
-		}
-		for _, line := range strings.Split(string(output), "\n") {
-			if strings.HasPrefix(strings.TrimSpace(line), "password =") {
-				return strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "password ="))
-			}
-		}
-		t.Fatal("password option missing from synthetic config")
-		return ""
-	}
-	before := showPassword()
-	question, err := rclonefs.StartConfigUpdate("mdc-editor-secret-check")
-	if err != nil {
-		t.Fatal(err)
-	}
-	creating := false
-	sensitiveSeen := false
-	for i := 0; i < 100 && question.State != ""; i++ {
-		if question.Option == nil {
-			t.Fatalf("missing option in state %q", question.State)
-		}
-		if question.Option.IsPassword || question.Option.Sensitive {
-			sensitiveSeen = true
-		}
-		answer := initialAnswer(*question.Option)
-		question, err = rclonefs.ContinueConfig("mdc-editor-secret-check", "", creating, question.State, answer)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	if question.State != "" || !sensitiveSeen {
-		t.Fatalf("wizard did not complete or ask a sensitive field: state=%q sensitive=%v", question.State, sensitiveSeen)
-	}
-	if after := showPassword(); after != before {
-		t.Fatal("keeping the masked password changed the stored value")
-	}
-	_ = os.Remove(configPath)
-}
-
 func TestExistingRemoteNameCannotEmitTerminalControlSequence(t *testing.T) {
 	const maliciousRemote = "backup\x1b]52;c;payload\a"
 	m := NewConfigEdit(maliciousRemote, 100, 30)
@@ -137,6 +82,46 @@ func TestExistingRemoteNameCannotEmitTerminalControlSequence(t *testing.T) {
 	view := m.View(themeForTest(), 100, 30)
 	if strings.Contains(view, "\x1b]52;") || strings.ContainsRune(view, '\a') {
 		t.Fatal("rclone remote name emitted a terminal control sequence")
+	}
+}
+
+func TestSensitiveExclusiveExamplesNeverRenderValueOrHelp(t *testing.T) {
+	const exampleValue = "synthetic-secret-example-value"
+	const exampleHelp = "synthetic-secret-example-help"
+	const optionHelp = "synthetic-secret-option-help"
+	const currentSecret = "synthetic-current-secret-value"
+
+	for _, test := range []struct {
+		name       string
+		isPassword bool
+		sensitive  bool
+	}{
+		{name: "password", isPassword: true},
+		{name: "sensitive", sensitive: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			m := ConfigEditorModel{
+				mode:   configModeQuestion,
+				remote: "test",
+				answer: currentSecret,
+				width:  100,
+				height: 30,
+				question: rclonefs.ConfigQuestion{Option: &rclonefs.ConfigOption{
+					Name:       "credential",
+					Help:       optionHelp,
+					IsPassword: test.isPassword,
+					Sensitive:  test.sensitive,
+					Exclusive:  true,
+					Examples:   []rclonefs.ConfigExample{{Value: exampleValue, Help: exampleHelp}},
+				}},
+			}
+			view := m.View(themeForTest(), 100, 30)
+			for _, secretText := range []string{exampleValue, exampleHelp, optionHelp, currentSecret} {
+				if strings.Contains(view, secretText) {
+					t.Fatalf("sensitive example text %q was rendered", secretText)
+				}
+			}
+		})
 	}
 }
 

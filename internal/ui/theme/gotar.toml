@@ -1,0 +1,79 @@
+name = "Gotar"
+
+[palette]
+black       = "#000000"
+dark_gray   = "#555555"
+gray        = "#808080"
+light_gray  = "#aaaaaa"
+white       = "#ffffff"
+
+red         = "#ff5555"
+bright_red  = "#ff0000"
+green       = "#55ff55"
+bright_green = "#00ff00"
+yellow      = "#ffff55"
+bright_yellow = "#ffff00"
+blue        = "#5555ff"
+bright_blue = "#0000ff"
+cyan        = "#55ffff"
+bright_cyan = "#00ffff"
+magenta     = "#ff55ff"
+bright_magenta = "#ff00ff"
+
+gotar_bg    = "#000000"
+gotar_panel = "#000000"
+gotar_focus = "#555555"
+gotar_gold  = "#ffff55"
+gotar_green = "#55ff55"
+gotar_red   = "#ff5555"
+gotar_cyan  = "#55ffff"
+
+[panel]
+border_fg        = "gotar_gold"
+border_bg        = "gotar_bg"
+border_active_fg = "gotar_gold"
+border_active_bg = "gotar_bg"
+
+header_fg        = "gotar_gold"
+header_bg        = "gotar_bg"
+header_active_fg = "white"
+header_active_bg = "gotar_bg"
+
+[panel.file]
+normal_fg       = "white"
+normal_bg       = "gotar_bg"
+
+dir_fg          = "gotar_cyan"
+dir_bg          = "gotar_bg"
+dir_bold        = true
+
+exec_fg         = "gotar_green"
+exec_bg         = "gotar_bg"
+
+symlink_fg      = "gotar_cyan"
+symlink_bg      = "gotar_bg"
+
+cursor_fg       = "black"
+cursor_bg       = "gotar_gold"
+
+cursor_dir_fg   = "black"
+cursor_dir_bg   = "gotar_cyan"
+cursor_dir_bold = true
+
+selected_fg     = "white"
+selected_bg     = "gotar_focus"
+selected_bold   = true
+
+[statusbar]
+fg = "white"
+bg = "gotar_focus"
+
+[menubar]
+fg            = "white"
+bg            = "gotar_focus"
+
+fkey_hint_fg  = "gotar_gold"
+fkey_hint_bg  = "gotar_bg"
+
+fkey_label_fg = "gotar_gold"
+fkey_label_bg = "gotar_bg"

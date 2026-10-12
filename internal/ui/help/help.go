@@ -118,6 +118,7 @@ func (m Model) rightEntries() []entry {
 		{"Fuzzy find", fmtKeys(k.FuzzyFind)},
 		{"Bookmarks", fmtKeys(k.Bookmarks)},
 		{"SSH servers", fmtKeys(k.Servers)},
+		{"rclone remotes", fmtKeys(k.Rclone)},
 		{"Quick search", fmtKeys(k.QuickSearch)},
 		{"Theme picker", fmtKeys(k.ThemePicker)},
 		{"Run command", fmtKeys(k.CmdExec)},

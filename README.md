@@ -1,5 +1,7 @@
 # Midday Commander
 
+**Author:** [PhateValleyman](https://github.com/PhateValleyman)
+
 <img alt="Static Badge" src="https://img.shields.io/badge/OSS%20hosting%20by-cloudsmith-blue?logo=cloudsmith&style=flat-square&link=https%3A%2F%2Fcloudsmith.com"></img>
 
 A modern dual-panel terminal file manager written in Go, inspired by Midnight Commander.
@@ -24,8 +26,9 @@ Try online: <a href="https://build.demoshell.com/launch?snapshot=kooler%2Ftui%3A
 - **Dual-panel file browsing** with independent navigation and selection
 - **Archive browsing** - enter ZIP, TAR, 7z, RAR, GZ, BZ2, XZ, LZ4 files as virtual directories
 - **SSH/SFTP panels** - open a remote server in either panel
+- **rclone remotes** - browse configured remotes, perform file operations, and bookmark remote paths
 - **Fuzzy finder** - recursive file search with real-time fuzzy matching
-- **Bookmarks** to quickly jump to most visited locations
+- **Bookmarks** to quickly jump to most visited local, SSH, and rclone locations
 - **Configurable keybindings** - every key is remappable via `config.toml`
 - **Smart autocomplete** - path and command suggestions with `Tab` completion in Go to path and Execute command
 - **File operations** - copy, move, delete, rename, mkdir with confirmation dialogs
@@ -53,7 +56,7 @@ Run: `mdc`
 
 ### From releases (MacOS/Windows/Linux)
 
-Download a binary from the [Releases](https://github.com/kooler/MiddayCommander/releases) in Github.
+Download a binary from the [Releases](https://github.com/PhateValleyman/mdc/releases) on GitHub.
 
 ### Debian / Ubuntu (apt)
 
@@ -74,7 +77,7 @@ sudo dnf install mdc
 ### Using Mise en place
 
 ```bash
-mise use --global github:kooler/MiddayCommander
+mise use --global github:PhateValleyman/mdc
 ```
 
 ### Build from source
@@ -82,7 +85,7 @@ mise use --global github:kooler/MiddayCommander
 Requires Go 1.19 or later.
 
 ```bash
-git clone https://github.com/kooler/MiddayCommander.git
+git clone https://github.com/PhateValleyman/mdc.git
 cd mdc
 make build
 ```
@@ -145,6 +148,7 @@ Now `mdcd` launches mdc; when you quit, the shell `cd`s into the directory the a
 | `F1` | Help - show keybinding reference |
 | `F2` | Bookmarks |
 | `Shift-F2` | SSH servers |
+| `Alt-R` | rclone remotes |
 | `F3` | View file (`$PAGER`) |
 | `F4` | Edit file (`$EDITOR`) |
 | `F5` | Copy to other panel |
@@ -225,7 +229,7 @@ ssh://user@host/var/log
 ssh://user@host:2222/srv/app
 ```
 
-`Shift-F5` on a remote file copies its `ssh://` address, and bookmarking a remote directory stores that address, so the bookmark reconnects when you pick it.
+`Shift-F5` on an SSH file copies its `ssh://` address; on an rclone file it copies an `rclone://` address. Bookmarks retain remote addresses, so selecting one reconnects to the saved SSH or rclone location.
 
 **`~/.ssh/config`.** Host aliases are used, so a name you already use at a shell prompt works here: `HostName`, `User`, `Port` and `IdentityFile` are read from the matching `Host` block. `ProxyJump` is not supported yet.
 
@@ -233,9 +237,17 @@ ssh://user@host:2222/srv/app
 
 **Host keys** are checked against `~/.ssh/known_hosts`. A host you have not seen before shows its fingerprint for you to confirm; a host whose key has *changed* is refused. Resolve it by editing `known_hosts` once you have verified the new key.
 
-**What is unavailable on a remote panel.** The fuzzy finder (`F9`/`Ctrl-P`), running a file with `Enter`, and the command runner (`Ctrl-R`) all need a local working directory and do nothing on a server panel. `Ctrl-O` opens a shell in the panel's local directory instead. `F3` and `F4` work: the file is downloaded to a temporary copy, opened in `$PAGER`/`$EDITOR`, and written back if you changed it.
+**What is unavailable on a remote panel.** The fuzzy finder (`F9`/`Ctrl-P`), running a file with `Enter`, and the command runner (`Ctrl-R`) all need a local working directory and do nothing on SSH or rclone panels. `Ctrl-O` opens a shell in the panel's local directory instead. `F3` and `F4` work: the file is downloaded to a temporary copy, opened in `$PAGER`/`$EDITOR`, and written back if you changed it.
 
-**Progress.** Copying *from* a server shows the number of files completed rather than a percentage: counting a remote tree requires a full recursive scan before the first byte moves which can be very slow. Cancelling a transfer with `Esc` leaves nothing behind — files are written to a temp name and renamed into place only once complete.
+**Progress.** Copying *from* an SSH or rclone remote shows the number of files completed rather than a percentage: counting a remote tree requires a full recursive scan before the first byte moves which can be very slow. Cancelling a transfer with `Esc` leaves nothing behind — files are written to a temp name and renamed into place only once complete.
+
+### rclone remotes
+
+Install `rclone` and configure remotes with `rclone config`. Press `Alt-R` to browse the remotes from the active panel. Use `Enter` to open a remote, `f` to filter, and `e` to launch rclone's interactive `rclone config edit` wizard for adding or editing provider settings. The wizard runs directly in the terminal; mdc does not read, store, or log credential values.
+
+Rclone panels support normal navigation and file operations, including copy (`F5`), move (`F6`), create directory (`F7`), delete (`F8`), and rename (`Shift-F6`). Single-file viewing and editing (`F3`/`F4`) use a temporary local staging copy and upload edits back to the remote. You can also open a remote path from `Ctrl-G` or a bookmark using `rclone://remote/path`, for example `rclone://drive/backups`.
+
+Rclone error details are intentionally not copied into mdc's UI because backend diagnostics can include sensitive provider information; failures show only the operation and exit status.
 
 ### Quick view
 
@@ -266,7 +278,7 @@ cp config.example.toml ~/.config/mdc/config.toml
 
 ```toml
 # Theme (loads from ~/.config/mdc/themes/<name>.toml)
-theme = "catppuccin-mocha"
+theme = "gotar"
 
 [behavior]
 # What Enter does on a file: "edit", "preview", or "execute"
@@ -288,6 +300,7 @@ delete        = "f8"
 fuzzy_find    = ["f9", "ctrl+p"]
 bookmarks     = ["f2", "ctrl+b"]
 servers       = "shift+f2"
+rclone        = "alt+r"
 help          = "f1"
 goto          = "ctrl+g"
 terminal      = "ctrl+o"
@@ -366,7 +379,7 @@ Contributions are welcome. Please open an issue to discuss significant changes b
 ### Development
 
 ```bash
-git clone https://github.com/kooler/MiddayCommander.git
+git clone https://github.com/PhateValleyman/mdc.git
 cd mdc
 make build
 make test

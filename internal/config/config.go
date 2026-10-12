@@ -74,6 +74,7 @@ type KeyBindings struct {
 	FuzzyFind    StringOrList `toml:"fuzzy_find"`
 	Bookmarks    StringOrList `toml:"bookmarks"`
 	Servers      StringOrList `toml:"servers"`
+	Rclone       StringOrList `toml:"rclone"`
 	Help         StringOrList `toml:"help"`
 	ThemePicker  StringOrList `toml:"theme_picker"`
 	CmdExec      StringOrList `toml:"cmd_exec"`
@@ -158,6 +159,7 @@ func DefaultKeyBindings() KeyBindings {
 		FuzzyFind:    StringOrList{"f9", "ctrl+p"},
 		Bookmarks:    StringOrList{"f2", "ctrl+b"},
 		Servers:      StringOrList{"shift+f2"},
+		Rclone:       StringOrList{"alt+r"},
 		Help:         StringOrList{"f1"},
 		ThemePicker:  StringOrList{"ctrl+t"},
 		CmdExec:      StringOrList{"ctrl+r"},
@@ -240,6 +242,7 @@ func mergeKeys(dst, src *KeyBindings) {
 	mergeKey(&dst.FuzzyFind, src.FuzzyFind)
 	mergeKey(&dst.Bookmarks, src.Bookmarks)
 	mergeKey(&dst.Servers, src.Servers)
+	mergeKey(&dst.Rclone, src.Rclone)
 	mergeKey(&dst.Help, src.Help)
 	mergeKey(&dst.ThemePicker, src.ThemePicker)
 	mergeKey(&dst.CmdExec, src.CmdExec)
@@ -305,6 +308,7 @@ func normalizeAllKeys(kb *KeyBindings) {
 	normalizeSlice(&kb.FuzzyFind)
 	normalizeSlice(&kb.Bookmarks)
 	normalizeSlice(&kb.Servers)
+	normalizeSlice(&kb.Rclone)
 	normalizeSlice(&kb.Help)
 	normalizeSlice(&kb.ThemePicker)
 	normalizeSlice(&kb.CmdExec)

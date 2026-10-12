@@ -7,16 +7,25 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// SafeTerminalText replaces control characters before untrusted text is rendered
-// in a terminal, preventing filenames and remote metadata from emitting control
-// sequences or breaking the layout.
+// SafeTerminalText replaces terminal control and bidi formatting characters
+// before untrusted text is rendered, preventing control sequences, layout breaks,
+// and visually reordered filenames or remote metadata.
 func SafeTerminalText(s string) string {
 	return strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) {
+		if unicode.IsControl(r) || isBidiControl(r) {
 			return '�'
 		}
 		return r
 	}, s)
+}
+
+func isBidiControl(r rune) bool {
+	switch r {
+	case '\u061c', '\u200e', '\u200f':
+		return true
+	default:
+		return r >= '\u202a' && r <= '\u202e' || r >= '\u2066' && r <= '\u2069'
+	}
 }
 
 // PrintableInput returns the printable text represented by a key message.

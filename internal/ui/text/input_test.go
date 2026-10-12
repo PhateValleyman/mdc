@@ -38,3 +38,11 @@ func TestSafeTerminalTextReplacesControlCharacters(t *testing.T) {
 		t.Fatalf("SafeTerminalText() = %q, want %q", got, want)
 	}
 }
+
+func TestSafeTerminalTextReplacesBidiFormattingControls(t *testing.T) {
+	input := "invoice\u202egpj.exe\u2066"
+	want := "invoice�gpj.exe�"
+	if got := SafeTerminalText(input); got != want {
+		t.Fatalf("SafeTerminalText() = %q, want %q", got, want)
+	}
+}

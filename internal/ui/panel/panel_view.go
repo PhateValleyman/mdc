@@ -69,10 +69,20 @@ func (m Model) View(th theme.Theme) string {
 		if m.entries != nil && !m.Location().IsRoot() {
 			count-- // exclude ".."
 		}
+		selectedCount := 0
+		for idx, selected := range m.selected {
+			if selected && idx >= 0 && idx < len(m.entries) && m.entries[idx].Name() != ".." {
+				selectedCount++
+			}
+		}
+		selectionLabel := ""
+		if selectedCount > 0 {
+			selectionLabel = fmt.Sprintf(" | %d selected", selectedCount)
+		}
 		if m.showHidden {
-			footerText = fmt.Sprintf(" %d files ", count)
+			footerText = fmt.Sprintf(" %d files%s ", count, selectionLabel)
 		} else {
-			footerText = fmt.Sprintf(" %d files [.hidden] ", count)
+			footerText = fmt.Sprintf(" %d files [.hidden]%s ", count, selectionLabel)
 		}
 	}
 	footerLine := borderStyle.Render("└") +

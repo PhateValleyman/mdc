@@ -8,8 +8,11 @@ import (
 
 func TestRcloneKeyDefaultAndOverride(t *testing.T) {
 	defaults := Default()
-	if len(defaults.Keys.Rclone) != 1 || defaults.Keys.Rclone[0] != "alt+r" {
-		t.Fatalf("default rclone key = %#v, want alt+r", defaults.Keys.Rclone)
+	if len(defaults.Keys.Rclone) != 1 || defaults.Keys.Rclone[0] != "R" {
+		t.Fatalf("default rclone key = %#v, want R (Shift+R)", defaults.Keys.Rclone)
+	}
+	if got := normalizeKey("shift+r"); got != "R" {
+		t.Fatalf("normalizeKey(shift+r) = %q, want R", got)
 	}
 
 	xdg := t.TempDir()

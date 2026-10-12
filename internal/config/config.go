@@ -159,7 +159,7 @@ func DefaultKeyBindings() KeyBindings {
 		FuzzyFind:    StringOrList{"f9", "ctrl+p"},
 		Bookmarks:    StringOrList{"f2", "ctrl+b"},
 		Servers:      StringOrList{"shift+f2"},
-		Rclone:       StringOrList{"alt+r"},
+		Rclone:       StringOrList{"shift+r"},
 		Help:         StringOrList{"f1"},
 		ThemePicker:  StringOrList{"ctrl+t"},
 		CmdExec:      StringOrList{"ctrl+r"},
@@ -258,9 +258,15 @@ func mergeKey(dst *StringOrList, src StringOrList) {
 	}
 }
 
-// normalizeKey converts user-friendly "shift+fN" (N=1..8) to the BubbleTea
-// key string "f(N+12)". BubbleTea v1.x reports Shift+F1..F8 as F13..F20.
+// normalizeKey converts shifted letters and function keys to Bubble Tea key strings.
+// Shift+letters arrive as uppercase runes; Shift+F1..F8 arrive as F13..F20.
 func normalizeKey(k string) string {
+	if strings.HasPrefix(k, "shift+") {
+		letter := strings.TrimPrefix(k, "shift+")
+		if len(letter) == 1 && letter[0] >= 'a' && letter[0] <= 'z' {
+			return strings.ToUpper(letter)
+		}
+	}
 	if !strings.HasPrefix(k, "shift+f") {
 		return k
 	}

@@ -148,7 +148,7 @@ Now `mdcd` launches mdc; when you quit, the shell `cd`s into the directory the a
 | `F1` | Help - show keybinding reference |
 | `F2` | Bookmarks |
 | `Shift-F2` | SSH servers |
-| `Alt-R` | rclone remotes |
+| `Shift+R` | rclone remotes |
 | `F3` | View file (`$PAGER`) |
 | `F4` | Edit file (`$EDITOR`) |
 | `F5` | Copy to other panel |
@@ -243,7 +243,7 @@ ssh://user@host:2222/srv/app
 
 ### rclone remotes
 
-Install `rclone` and configure remotes with `rclone config`. Press `Alt-R` to browse the remotes from the active panel. Use `Enter` to open a remote, `f` to filter, and `e` to launch rclone's interactive `rclone config edit` wizard for adding or editing provider settings. The wizard runs directly in the terminal; mdc does not read, store, or log credential values.
+Install `rclone` and configure remotes with `rclone config`. Press `Shift+R` to browse the remotes from the active panel. Use `Enter` to open a remote, `f` to filter, and `e` to launch rclone's interactive `rclone config edit` wizard for adding or editing provider settings. The wizard runs directly in the terminal; mdc does not read, store, or log credential values.
 
 Rclone panels support normal navigation and file operations, including copy (`F5`), move (`F6`), create directory (`F7`), delete (`F8`), and rename (`Shift-F6`). Single-file viewing and editing (`F3`/`F4`) use a temporary local staging copy and upload edits back to the remote. You can also open a remote path from `Ctrl-G` or a bookmark using `rclone://remote/path`, for example `rclone://drive/backups`.
 
@@ -300,7 +300,7 @@ delete        = "f8"
 fuzzy_find    = ["f9", "ctrl+p"]
 bookmarks     = ["f2", "ctrl+b"]
 servers       = "shift+f2"
-rclone        = "alt+r"
+rclone        = "shift+r"
 help          = "f1"
 goto          = "ctrl+g"
 terminal      = "ctrl+o"

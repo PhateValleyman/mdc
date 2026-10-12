@@ -627,10 +627,10 @@ func TestNewWithOptions(t *testing.T) {
 func TestRcloneShortcutOpensRemotePicker(t *testing.T) {
 	isolate(t)
 	m := newModel(t)
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}, Alt: true}
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'R'}}
 	m, cmd := run(t, m, msg)
 	if m.rclonePicker == nil {
-		t.Fatal("Alt-R should open the rclone remote picker")
+		t.Fatal("Shift+R should open the rclone remote picker")
 	}
 	if cmd == nil {
 		t.Fatal("opening the rclone picker should load remote names")

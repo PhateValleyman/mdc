@@ -884,7 +884,12 @@ func (m Model) View() string {
 	}
 	fkeyView := menubar.View(m.theme, m.width, items)
 
-	screen := lipgloss.JoinVertical(lipgloss.Left, panels, fkeyView)
+	screenParts := []string{panels}
+	if m.height >= 6 {
+		screenParts = append(screenParts, m.statusBarView())
+	}
+	screenParts = append(screenParts, fkeyView)
+	screen := lipgloss.JoinVertical(lipgloss.Left, screenParts...)
 
 	if m.copyPath != nil {
 		box := m.copyPath.View(m.theme, m.width, m.height)
@@ -928,6 +933,48 @@ func (m Model) View() string {
 		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
 	}
 	return screen
+}
+
+// statusBarView shows the active pane and the item under its cursor. Keep the
+// content plain-text and cell-width-aware so it works in limited terminals.
+func (m Model) statusBarView() string {
+	label := "LEFT"
+	if m.focus == FocusRight {
+		label = "RIGHT"
+	}
+
+	p := m.activePanel()
+	details := "No item under cursor"
+	if entry := p.CurrentEntry(); entry != nil {
+		name := uitext.SafeTerminalText(entry.Name())
+		details = name
+		if info := p.CurrentInfo(); info != nil {
+			size := panel.FormatSize(info.Size())
+			if entry.IsDir() {
+				size = "<DIR>"
+			}
+			details += "  " + size + "  " + panel.FormatTime(info.ModTime())
+		} else if entry.IsDir() {
+			details += "  <DIR>"
+		}
+	}
+
+	prefixText := " " + label + " "
+	prefixWidth := len(prefixText) // The pane label is ASCII.
+	if prefixWidth > m.width {
+		prefixWidth = m.width
+	}
+	if prefixWidth < 0 {
+		prefixWidth = 0
+	}
+	bodyWidth := m.width - prefixWidth
+	if bodyWidth < 0 {
+		bodyWidth = 0
+	}
+
+	prefix := m.theme.FKeyHint.Render(overlay.PadOrTrunc(prefixText, prefixWidth))
+	body := m.theme.StatusBar.Render(overlay.PadOrTruncDots(details, bodyWidth))
+	return prefix + body
 }
 
 // dispatchKey executes the action bound to a raw key string (used for menu bar clicks).
@@ -1403,6 +1450,9 @@ func (m *Model) toggleFocus() {
 
 func (m *Model) recalcLayout() {
 	panelHeight := m.height - 3 // 2 for panel borders (top+bottom), 1 for fkey bar
+	if m.height >= 6 {
+		panelHeight-- // reserve one row for the contextual status bar
+	}
 	if panelHeight < 1 {
 		panelHeight = 1
 	}

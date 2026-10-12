@@ -24,6 +24,7 @@ Try online: <a href="https://build.demoshell.com/launch?snapshot=kooler%2Ftui%3A
 ## Features
 
 - **Dual-panel file browsing** with independent navigation and selection
+- **Context status bar** showing the active pane and current item's name, size, and modification time
 - **Archive browsing** - enter ZIP, TAR, 7z, RAR, GZ, BZ2, XZ, LZ4 files as virtual directories
 - **SSH/SFTP panels** - open a remote server in either panel
 - **rclone remotes** - browse configured remotes, perform file operations, and bookmark remote paths

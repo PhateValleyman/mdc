@@ -23,6 +23,7 @@ type KeyMap struct {
 	FuzzyFind       key.Binding
 	Bookmarks       key.Binding
 	Servers         key.Binding
+	Rclone          key.Binding
 	Help            key.Binding
 	ThemePicker     key.Binding
 	CmdExec         key.Binding
@@ -53,6 +54,7 @@ func KeyMapFromConfig(keys config.KeyBindings) KeyMap {
 		FuzzyFind:       binding(keys.FuzzyFind, "find"),
 		Bookmarks:       binding(keys.Bookmarks, "bookmarks"),
 		Servers:         binding(keys.Servers, "ssh servers"),
+		Rclone:          binding(keys.Rclone, "rclone remotes"),
 		Help:            binding(keys.Help, "help"),
 		ThemePicker:     binding(keys.ThemePicker, "themes"),
 		CmdExec:         binding(keys.CmdExec, "run cmd"),

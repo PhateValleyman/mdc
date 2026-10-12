@@ -1,10 +1,10 @@
 # Midday Commander - Example Configuration
 # Copy to ~/.config/mdc/config.toml to customize.
 
-# Theme name (loads from ~/.config/mdc/themes/<name>.toml)
-# Built-in options: "mc-classic", "catppuccin-mocha"
+# Theme key: Gotar is the default; custom themes load from ~/.config/mdc/themes/<name>.toml.
+# Built-in options: "gotar", "catppuccin-mocha", "mc-classic"
 # Or place your own .toml in the themes directory.
-theme = "catppuccin-mocha"
+theme = "gotar"
 
 # ─── Behavior ────────────────────────────────────
 [behavior]
@@ -65,6 +65,7 @@ goto          = "ctrl+g"
 fuzzy_find    = ["f9", "ctrl+p"]
 bookmarks     = ["f2", "ctrl+b"]
 servers       = "shift+f2"
+rclone        = "alt+r"
 help          = ["f1"]
 theme_picker  = "ctrl+t"
 cmd_exec      = "ctrl+r"

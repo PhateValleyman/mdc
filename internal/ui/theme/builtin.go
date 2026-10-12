@@ -8,20 +8,33 @@ import (
 )
 
 // DefaultKey is the config key of the theme applied when none is configured.
-const DefaultKey = "catppuccin-mocha"
+const DefaultKey = "gotar"
 
-// catppuccin-mocha.toml is a copy of themes/catppuccin-mocha.toml, embedded so
-// the default theme is available without a config file or network access.
-//
+//go:embed gotar.toml
+var gotarTOML []byte
+
 //go:embed catppuccin-mocha.toml
 var mochaTOML []byte
 
 var (
+	gotarOnce     sync.Once
+	gotarThemeVal Theme
 	mochaOnce     sync.Once
 	mochaThemeVal Theme
 )
 
-// mochaTheme builds the embedded Catppuccin Mocha theme (the default), once.
+func gotarTheme() Theme {
+	gotarOnce.Do(func() {
+		var tf ThemeFile
+		if err := toml.Unmarshal(gotarTOML, &tf); err != nil {
+			gotarThemeVal = Default()
+			return
+		}
+		gotarThemeVal = buildTheme(tf)
+	})
+	return gotarThemeVal
+}
+
 func mochaTheme() Theme {
 	mochaOnce.Do(func() {
 		var tf ThemeFile
@@ -38,13 +51,14 @@ func mochaTheme() Theme {
 // The first entry is the default.
 func builtinThemes() []AvailableTheme {
 	return []AvailableTheme{
-		{Key: DefaultKey, Name: "Catppuccin Mocha", Source: SourceDefault, Theme: mochaTheme()},
+		{Key: DefaultKey, Name: "Gotar", Source: SourceDefault, Theme: gotarTheme()},
+		{Key: "catppuccin-mocha", Name: "Catppuccin Mocha", Source: SourceDefault, Theme: mochaTheme()},
 		{Key: "mc-classic", Name: "MC Classic", Source: SourceDefault, Theme: Default()},
 	}
 }
 
 // Resolve returns the theme for the given config key, honoring built-ins before
-// disk lookup. An empty key selects the default (Catppuccin Mocha).
+// disk lookup. An empty key selects Gotar.
 func Resolve(key string) Theme {
 	if key == "" {
 		key = DefaultKey
@@ -57,5 +71,5 @@ func Resolve(key string) Theme {
 	if loaded, err := LoadByName(key); err == nil {
 		return loaded
 	}
-	return mochaTheme()
+	return gotarTheme()
 }

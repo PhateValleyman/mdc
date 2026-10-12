@@ -60,3 +60,18 @@ func TestOrDefault(t *testing.T) {
 		t.Errorf("orDefault should return colored style, not default")
 	}
 }
+
+func TestGotarIsTheEmbeddedDefault(t *testing.T) {
+	if DefaultKey != "gotar" {
+		t.Fatalf("default key = %q, want gotar", DefaultKey)
+	}
+	defaultTheme := Resolve("")
+	gotarTheme, err := LoadFromFile("gotar.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if defaultTheme.PanelBorder.GetForeground() != gotarTheme.PanelBorder.GetForeground() ||
+		defaultTheme.FileCursor.GetBackground() != gotarTheme.FileCursor.GetBackground() {
+		t.Fatal("empty theme selection did not resolve to Gotar")
+	}
+}

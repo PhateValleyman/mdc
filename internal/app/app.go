@@ -28,11 +28,13 @@ import (
 	"github.com/kooler/MiddayCommander/internal/ui/overlay"
 	"github.com/kooler/MiddayCommander/internal/ui/panel"
 	"github.com/kooler/MiddayCommander/internal/ui/quickview"
+	rcloneui "github.com/kooler/MiddayCommander/internal/ui/rclone"
 	"github.com/kooler/MiddayCommander/internal/ui/servers"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 	"github.com/kooler/MiddayCommander/internal/ui/themepicker"
 	"github.com/kooler/MiddayCommander/internal/vfs"
 	"github.com/kooler/MiddayCommander/internal/vfs/local"
+	"github.com/kooler/MiddayCommander/internal/vfs/rclonefs"
 )
 
 // FocusTarget tracks which panel has focus.
@@ -76,14 +78,15 @@ type Model struct {
 	height     int
 
 	// Overlays
-	dialog      *dialog.Model
-	fuzzy       *fuzzy.Model
-	bookmarks   *bookmarks.Model
-	servers     *servers.Model
-	help        *help.Model
-	themePicker *themepicker.Model
-	cmdExec     *cmdexec.Model
-	copyPath    *copypath.Model
+	dialog       *dialog.Model
+	fuzzy        *fuzzy.Model
+	bookmarks    *bookmarks.Model
+	servers      *servers.Model
+	rclonePicker *rcloneui.Model
+	help         *help.Model
+	themePicker  *themepicker.Model
+	cmdExec      *cmdexec.Model
+	copyPath     *copypath.Model
 
 	// Quick view: non-nil when the inactive pane shows a file preview.
 	// quickFocus toggles whether keys scroll the preview (true) or drive the
@@ -98,9 +101,10 @@ type Model struct {
 	bookmarkStore *bookmark.Store
 
 	// Saved servers, live connections, and the panel each one serves.
-	serverStore  *remote.Store
-	connRegistry *remote.Registry
-	panelConns   map[FocusTarget]*remote.Conn
+	serverStore       *remote.Store
+	connRegistry      *remote.Registry
+	panelConns        map[FocusTarget]*remote.Conn
+	rcloneFileSystems map[string]*rclonefs.FS
 
 	// Kept while a host key or passphrase dialog is open, so the attempt can
 	// be retried with the answer.
@@ -199,19 +203,20 @@ func NewWithOptions(opts Options) Model {
 	th := theme.Resolve(cfg.Theme)
 
 	return Model{
-		leftPanel:      left,
-		rightPanel:     right,
-		focus:          FocusLeft,
-		keyMap:         KeyMapFromConfig(cfg.Keys),
-		theme:          th,
-		cfg:            cfg,
-		version:        opts.Version,
-		menuItems:      menubar.DefaultItems(cfg),
-		shiftMenuItems: menubar.ShiftItems(cfg),
-		bookmarkStore:  bookmark.LoadStore(),
-		serverStore:    remote.LoadStore(),
-		connRegistry:   remote.NewRegistry(),
-		panelConns:     map[FocusTarget]*remote.Conn{},
+		leftPanel:         left,
+		rightPanel:        right,
+		focus:             FocusLeft,
+		keyMap:            KeyMapFromConfig(cfg.Keys),
+		theme:             th,
+		cfg:               cfg,
+		version:           opts.Version,
+		menuItems:         menubar.DefaultItems(cfg),
+		shiftMenuItems:    menubar.ShiftItems(cfg),
+		bookmarkStore:     bookmark.LoadStore(),
+		serverStore:       remote.LoadStore(),
+		connRegistry:      remote.NewRegistry(),
+		panelConns:        map[FocusTarget]*remote.Conn{},
+		rcloneFileSystems: map[string]*rclonefs.FS{},
 	}
 }
 
@@ -243,6 +248,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		if m.rclonePicker != nil {
+			m.rclonePicker.SetSize(msg.Width, msg.Height)
+		}
 		m.recalcLayout()
 		return m, nil
 
@@ -308,9 +316,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.themePicker = nil
 		return m, nil
 
+	case rcloneui.RemotesLoadedMsg:
+		if m.rclonePicker != nil {
+			m.rclonePicker.HandleRemotes(msg)
+		}
+		return m, nil
+
+	case rcloneui.DismissMsg:
+		m.rclonePicker = nil
+		return m, nil
+
+	case rcloneui.SelectMsg:
+		m.rclonePicker = nil
+		return m.openRcloneRemote(msg.Remote, "/")
+
+	case rcloneui.EditConfigRequestedMsg:
+		return m, m.rcloneConfigEditCmd()
+
+	case rcloneui.ConfigEditFinishedMsg:
+		return m.handleRcloneConfigEdited(msg.Err)
+
 	// Bookmark messages
 	case bookmarks.SelectMsg:
 		m.bookmarks = nil
+		if next, cmd, ok := m.openRcloneTarget(msg.Path); ok {
+			return next, cmd
+		}
 		if srv, remotePath, ok := m.openServerTarget(msg.Path); ok {
 			return m.startConnect(srv, remotePath)
 		}
@@ -552,6 +583,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
+		if m.rclonePicker != nil {
+			newPicker, cmd := m.rclonePicker.Update(msg)
+			m.rclonePicker = &newPicker
+			return m, cmd
+		}
+
 		// Copy path overlay gets priority when active
 		if m.copyPath != nil {
 			newCP, cmd := m.copyPath.Update(msg)
@@ -701,6 +738,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, m.keyMap.Servers):
 			return m.startServers()
+
+		case key.Matches(msg, m.keyMap.Rclone):
+			return m.startRcloneRemotes()
+
 		case key.Matches(msg, m.keyMap.Bookmarks):
 			return m.startBookmarks()
 
@@ -791,6 +832,10 @@ func (m Model) View() string {
 	} else if m.servers != nil {
 		box := m.servers.View(m.theme, m.width, m.height)
 		bw, bh := m.servers.BoxSize(m.width, m.height)
+		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
+	} else if m.rclonePicker != nil {
+		box := m.rclonePicker.View(m.theme, m.width, m.height)
+		bw, bh := m.rclonePicker.BoxSize(m.width, m.height)
 		screen = overlay.Place(screen, box, m.width, m.height, bw, bh)
 	} else if m.themePicker != nil {
 		box := m.themePicker.View(m.theme, m.width, m.height)
@@ -1005,8 +1050,8 @@ func (m Model) startHelp() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) startBookmarks() (tea.Model, tea.Cmd) {
-	// A server directory is bookmarked in ssh:// form, so picking the
-	// bookmark later reconnects.
+	// Remote directories are bookmarked as URLs so selection reconnects to the
+	// same SSH or rclone location.
 	p := m.activePanel()
 	bm := bookmarks.New(m.bookmarkStore, p.Location().URLFor(p.Path()), m.width, m.height)
 	m.bookmarks = &bm
@@ -1102,7 +1147,7 @@ func (m Model) startEdit() (tea.Model, tea.Cmd) {
 // it. Archives are excluded: there is no writable side to put an edit back.
 func (m Model) startStaged(edit bool) (tea.Model, tea.Cmd) {
 	p := m.activePanel()
-	if p.Location().Kind != vfs.KindSSH {
+	if p.Location().Kind != vfs.KindSSH && p.Location().Kind != vfs.KindRclone {
 		return m, nil
 	}
 
@@ -1196,6 +1241,9 @@ func (m Model) handleDialogResult(result dialog.Result) (tea.Model, tea.Cmd) {
 		}
 	case tagGoTo:
 		if result.Confirmed && result.Text != "" {
+			if next, cmd, ok := m.openRcloneTarget(result.Text); ok {
+				return next, cmd
+			}
 			if srv, remotePath, ok := m.openServerTarget(result.Text); ok {
 				return m.startConnect(srv, remotePath)
 			}

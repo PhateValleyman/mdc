@@ -12,6 +12,7 @@ import (
 	"github.com/kooler/MiddayCommander/internal/actions"
 	"github.com/kooler/MiddayCommander/internal/remote"
 	"github.com/kooler/MiddayCommander/internal/remote/testserver"
+	"github.com/kooler/MiddayCommander/internal/ui/bookmarks"
 	"github.com/kooler/MiddayCommander/internal/ui/dialog"
 	"github.com/kooler/MiddayCommander/internal/ui/panel"
 	"github.com/kooler/MiddayCommander/internal/ui/servers"
@@ -623,3 +624,52 @@ func TestNewWithOptions(t *testing.T) {
 	}
 }
 
+func TestRcloneShortcutOpensRemotePicker(t *testing.T) {
+	isolate(t)
+	m := newModel(t)
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}, Alt: true}
+	m, cmd := run(t, m, msg)
+	if m.rclonePicker == nil {
+		t.Fatal("Alt-R should open the rclone remote picker")
+	}
+	if cmd == nil {
+		t.Fatal("opening the rclone picker should load remote names")
+	}
+}
+
+func TestRcloneURLOpensRemoteLocation(t *testing.T) {
+	isolate(t)
+	m := newModel(t)
+	next, cmd, ok := m.openRcloneTarget("rclone://drive/backups/weekly")
+	if !ok {
+		t.Fatal("rclone URL was not recognized")
+	}
+	opened, isModel := next.(Model)
+	if !isModel {
+		t.Fatalf("opened model has type %T", next)
+	}
+	loc := opened.activePanel().Location()
+	if loc.Kind != vfs.KindRclone || loc.Path != "/backups/weekly" || loc.Label != "rclone://drive" {
+		t.Fatalf("unexpected rclone location: kind=%v path=%q label=%q", loc.Kind, loc.Path, loc.Label)
+	}
+	if cmd == nil {
+		t.Fatal("opening a remote should request a directory listing")
+	}
+}
+
+func TestRcloneBookmarkReopensRemoteLocation(t *testing.T) {
+	isolate(t)
+	m := newModel(t)
+	location := vfs.NewLocation(nil, "/backups/weekly", vfs.KindRclone, "rclone://drive")
+	bookmarkPath := location.URLFor(location.Path)
+	m.bookmarkStore.Add(bookmarkPath, "Weekly backups")
+
+	selected, cmd := run(t, m, bookmarks.SelectMsg{Path: m.bookmarkStore.Bookmarks[0].Path})
+	loc := selected.activePanel().Location()
+	if loc.Kind != vfs.KindRclone || loc.Path != "/backups/weekly" || loc.Label != "rclone://drive" {
+		t.Fatalf("unexpected location after selecting rclone bookmark: kind=%v path=%q label=%q", loc.Kind, loc.Path, loc.Label)
+	}
+	if cmd == nil {
+		t.Fatal("opening a bookmarked remote should request a directory listing")
+	}
+}

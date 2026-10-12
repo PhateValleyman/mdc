@@ -13,6 +13,7 @@ const (
 	KindLocal Kind = iota
 	KindArchive
 	KindSSH
+	KindRclone
 )
 
 func (k Kind) IsLocal() bool { return k == KindLocal }
@@ -23,7 +24,7 @@ func (k Kind) RootPath() string {
 	switch k {
 	case KindArchive:
 		return "."
-	case KindSSH:
+	case KindSSH, KindRclone:
 		return "/"
 	default:
 		return string(filepath.Separator)
@@ -67,7 +68,7 @@ func IsRootPath(k Kind, p string) bool {
 	switch k {
 	case KindArchive:
 		return p == "." || p == "" || p == "/"
-	case KindSSH:
+	case KindSSH, KindRclone:
 		return p == "/" || p == ""
 	default:
 		if p == string(filepath.Separator) {
@@ -173,7 +174,7 @@ func (l Location) WithPath(p string) Location {
 }
 
 // URLFor returns the addressable form of a path: bare locally,
-// "ssh://kk@host/var/log" on a server.
+// "ssh://kk@host/var/log" or "rclone://drive/photos" on a remote.
 func (l Location) URLFor(p string) string {
 	if l.IsLocal() || l.Label == "" {
 		return p

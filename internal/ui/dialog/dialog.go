@@ -119,8 +119,8 @@ func NewPassword(title, message, tag string) Model {
 func NewError(title, message string) Model {
 	return Model{
 		kind:    KindError,
-		title:   title,
-		message: message,
+		title:   uitext.SafeTerminalText(title),
+		message: uitext.SafeTerminalText(message),
 		width:   50,
 	}
 }

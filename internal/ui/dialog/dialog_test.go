@@ -306,6 +306,19 @@ func TestErrorDialogAdvertisesOneCloseKey(t *testing.T) {
 	}
 }
 
+func TestErrorDialogSanitizesTerminalControlText(t *testing.T) {
+	const malicious = "remote\x1b]52;c;payload\a"
+	m := NewError(malicious, malicious)
+	out := m.View(theme.Theme{}, 100, 30)
+
+	if strings.Contains(out, "\x1b]52;c;payload\a") || strings.ContainsRune(out, '\a') {
+		t.Fatal("error dialog rendered terminal control characters")
+	}
+	if !strings.Contains(out, "remote�]52;c;payload�") {
+		t.Fatal("sanitized error text is missing")
+	}
+}
+
 func TestErrorDialogStillClosesOnEnter(t *testing.T) {
 	for _, k := range []tea.KeyMsg{
 		{Type: tea.KeyEsc},

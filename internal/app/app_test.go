@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -701,6 +702,26 @@ func TestRcloneConfigFailureShowsSafeErrorWithoutRefreshing(t *testing.T) {
 	}
 	if updated.rclonePicker == nil || strings.Contains(updated.rclonePicker.View(updated.theme, 100, 30), "Loading rclone remotes") {
 		t.Fatal("failed native config command must not present a refreshed picker")
+	}
+}
+
+func TestRcloneReconnectFailureSanitizesRemoteName(t *testing.T) {
+	isolate(t)
+	m := newModel(t)
+	const maliciousRemote = "remote\x1b]52;c;payload\a"
+	updated, _ := run(t, m, rcloneui.ReconnectDoneMsg{
+		Remote: maliciousRemote,
+		Err:    errors.New("exit status 1"),
+	})
+	if updated.dialog == nil || updated.dialog.Kind() != dialog.KindError {
+		t.Fatal("failed reconnect should show an error dialog")
+	}
+	view := updated.dialog.View(updated.theme, 100, 30)
+	if strings.Contains(view, "\x1b]52;c;payload\a") || strings.ContainsRune(view, '\a') {
+		t.Fatal("reconnect error rendered terminal control characters from the remote name")
+	}
+	if !strings.Contains(view, "remote�]52;c;payload�") {
+		t.Fatal("sanitized reconnect remote name is missing from the error message")
 	}
 }
 

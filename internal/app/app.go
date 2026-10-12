@@ -32,6 +32,7 @@ import (
 	"github.com/kooler/MiddayCommander/internal/ui/quickview"
 	rcloneui "github.com/kooler/MiddayCommander/internal/ui/rclone"
 	"github.com/kooler/MiddayCommander/internal/ui/servers"
+	uitext "github.com/kooler/MiddayCommander/internal/ui/text"
 	"github.com/kooler/MiddayCommander/internal/ui/theme"
 	"github.com/kooler/MiddayCommander/internal/ui/themepicker"
 	"github.com/kooler/MiddayCommander/internal/vfs"
@@ -384,7 +385,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case rcloneui.ReconnectDoneMsg:
 		if msg.Err != nil {
-			return m.showError("rclone OAuth", fmt.Errorf("authentication for %q failed: %w", msg.Remote, msg.Err))
+			remote := uitext.SafeTerminalText(msg.Remote)
+			return m.showError("rclone OAuth", fmt.Errorf("authentication for %q failed: %w", remote, msg.Err))
 		}
 		if m.rclonePicker != nil {
 			m.rclonePicker.BeginRefresh()
